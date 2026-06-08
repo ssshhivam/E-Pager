@@ -39,6 +39,13 @@ public class NotificationLog {
     @Column(length = 2000)
     private String message;
 
+    private String title;
+    private String deepLink;
+    private String providerMessageId;
+
+    @Column(length = 1000)
+    private String errorMessage;
+
     @Column(nullable = false)
     private boolean delivered;
 
@@ -90,6 +97,38 @@ public class NotificationLog {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDeepLink() {
+        return deepLink;
+    }
+
+    public void setDeepLink(String deepLink) {
+        this.deepLink = deepLink;
+    }
+
+    public String getProviderMessageId() {
+        return providerMessageId;
+    }
+
+    public void setProviderMessageId(String providerMessageId) {
+        this.providerMessageId = providerMessageId;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 
     public boolean isDelivered() {

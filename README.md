@@ -10,7 +10,8 @@ A Spring Boot MVP for receiving monitoring alerts and escalating them until some
 - Incident lifecycle: `TRIGGERED`, `ACKNOWLEDGED`, `RESOLVED`
 - Escalation policies by service name
 - Scheduled escalation checks
-- Notification log with console/email-style notification stub
+- Push-first notification dispatcher with pluggable providers
+- User device registration for browser/mobile push tokens
 - H2 in-memory database for local development
 - PostgreSQL profile placeholder for the next phase
 
@@ -70,6 +71,8 @@ On startup, the app creates:
 
 The `payments` policy sends the first alert to Shivam, then escalates to Ravi after 5 minutes, then Manish after 10 more minutes.
 
+Each seeded user also has a demo push device token so alert delivery is logged as a simulated push notification.
+
 ## Try a Grafana-style alert
 
 ```powershell
@@ -128,6 +131,8 @@ POST /api/alerts/dynatrace
 
 GET  /api/users
 POST /api/users
+GET  /api/users/{userId}/devices
+POST /api/users/{userId}/devices
 
 GET  /api/escalation-policies
 POST /api/escalation-policies
@@ -146,3 +151,37 @@ Acknowledgement body:
   "userId": 1
 }
 ```
+
+Register a push device:
+
+```json
+{
+  "platform": "WEB",
+  "pushToken": "browser-or-mobile-push-token",
+  "deviceName": "Chrome on laptop"
+}
+```
+
+## Push notification flow
+
+The escalation engine resolves the next user, then `NotificationService` sends `PUSH` notifications to every active device registered for that user.
+
+The current `PushNotificationProvider` is a simulated provider. It logs the push payload and stores a `notification_logs` entry with:
+
+```text
+channel
+destination
+title
+message
+deepLink
+providerMessageId
+delivered
+```
+
+The deep link is:
+
+```text
+/incidents/{incidentId}
+```
+
+When a real web/mobile app is added, the push provider can send that deep link through Firebase Cloud Messaging, Web Push, APNS, or another push service. Clicking the notification should open the app directly on the incident details page.
