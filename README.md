@@ -7,6 +7,7 @@ A Spring Boot MVP for receiving monitoring alerts and escalating them until some
 - Grafana webhook endpoint
 - Dynatrace webhook endpoint
 - Source adapter pattern so new monitoring tools do not touch incident/escalation logic
+- Webhook token validation and webhook audit logs
 - Incident lifecycle: `TRIGGERED`, `ACKNOWLEDGED`, `RESOLVED`
 - Escalation policies by service name
 - Scheduled escalation checks
@@ -50,6 +51,14 @@ Default PostgreSQL connection:
 jdbc:postgresql://localhost:5432/epager
 username: epager
 password: epager
+```
+
+For local-only overrides, create `application-local.yml` in the project root. It is ignored by Git:
+
+```yaml
+spring:
+  datasource:
+    password: your-local-password
 ```
 
 Override with environment variables:
@@ -105,6 +114,7 @@ On startup, the app creates:
 - `Ravi Lead`
 - `Manish Manager`
 - Escalation policy for service `payments`
+- Webhook sources `grafana` and `dynatrace` with token `demo-webhook-token`
 
 The `payments` policy sends the first alert to Shivam, then escalates to Ravi after 5 minutes, then Manish after 10 more minutes.
 
@@ -114,6 +124,7 @@ Each seeded user also has a demo push device token so alert delivery is logged a
 
 ```powershell
 Invoke-RestMethod -Method Post http://localhost:8080/api/alerts/grafana `
+  -Headers @{ "X-EPAGER-WEBHOOK-TOKEN" = "demo-webhook-token" } `
   -ContentType "application/json" `
   -Body '{
     "title": "High CPU on payments",
@@ -166,6 +177,9 @@ The rest of the system still receives only `UnifiedAlert`, so escalation policie
 POST /api/alerts/grafana
 POST /api/alerts/dynatrace
 
+Header required for alert webhooks:
+X-EPAGER-WEBHOOK-TOKEN: demo-webhook-token
+
 GET  /api/users
 POST /api/users
 GET  /api/users/{userId}/devices
@@ -182,6 +196,10 @@ GET  /api/escalation-policies
 POST /api/escalation-policies
 PUT  /api/escalation-policies/{policyId}
 GET  /api/escalation-policies/events
+
+GET  /api/webhooks/sources
+POST /api/webhooks/sources
+GET  /api/webhooks/audit
 
 GET  /api/incidents
 GET  /api/incidents/{incidentId}

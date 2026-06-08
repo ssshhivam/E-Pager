@@ -14,6 +14,7 @@ import com.example.epager.project.SupportGroupMemberRepository;
 import com.example.epager.project.SupportGroupRepository;
 import com.example.epager.user.AppUser;
 import com.example.epager.user.AppUserRepository;
+import com.example.epager.webhook.WebhookSecurityService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -28,6 +29,7 @@ public class SeedData implements CommandLineRunner {
     private final ProjectRepository projectRepository;
     private final SupportGroupRepository supportGroupRepository;
     private final SupportGroupMemberRepository supportGroupMemberRepository;
+    private final WebhookSecurityService webhookSecurityService;
 
     public SeedData(
             AppUserRepository appUserRepository,
@@ -35,7 +37,8 @@ public class SeedData implements CommandLineRunner {
             UserDeviceRepository userDeviceRepository,
             ProjectRepository projectRepository,
             SupportGroupRepository supportGroupRepository,
-            SupportGroupMemberRepository supportGroupMemberRepository
+            SupportGroupMemberRepository supportGroupMemberRepository,
+            WebhookSecurityService webhookSecurityService
     ) {
         this.appUserRepository = appUserRepository;
         this.escalationPolicyRepository = escalationPolicyRepository;
@@ -43,10 +46,13 @@ public class SeedData implements CommandLineRunner {
         this.projectRepository = projectRepository;
         this.supportGroupRepository = supportGroupRepository;
         this.supportGroupMemberRepository = supportGroupMemberRepository;
+        this.webhookSecurityService = webhookSecurityService;
     }
 
     @Override
     public void run(String... args) {
+        seedWebhookSources();
+
         if (appUserRepository.count() > 0) {
             return;
         }
@@ -74,6 +80,21 @@ public class SeedData implements CommandLineRunner {
         policy.addLevel(createLevel(2, lead, 10));
         policy.addLevel(createLevel(3, manager, 15));
         escalationPolicyRepository.save(policy);
+    }
+
+    private void seedWebhookSources() {
+        webhookSecurityService.createSource(
+                "grafana",
+                "demo-webhook-token",
+                "Demo source for Grafana-style webhook payloads",
+                true
+        );
+        webhookSecurityService.createSource(
+                "dynatrace",
+                "demo-webhook-token",
+                "Demo source for Dynatrace-style webhook payloads",
+                true
+        );
     }
 
     private AppUser createUser(String name, String email, String phoneNumber) {
