@@ -41,6 +41,18 @@ H2 console:
 http://localhost:8080/h2-console
 ```
 
+Swagger UI:
+
+```text
+http://localhost:8080/swagger-ui/index.html
+```
+
+OpenAPI JSON:
+
+```text
+http://localhost:8080/v3/api-docs
+```
+
 JDBC URL:
 
 ```text
