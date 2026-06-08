@@ -6,6 +6,7 @@ A Spring Boot MVP for receiving monitoring alerts and escalating them until some
 
 - Grafana webhook endpoint
 - Dynatrace webhook endpoint
+- Source adapter pattern so new monitoring tools do not touch incident/escalation logic
 - Incident lifecycle: `TRIGGERED`, `ACKNOWLEDGED`, `RESOLVED`
 - Escalation policies by service name
 - Scheduled escalation checks
@@ -85,6 +86,27 @@ Invoke-RestMethod -Method Post http://localhost:8080/api/alerts/grafana `
     ]
   }'
 ```
+
+## Add another alert source
+
+Incoming alert sources are intentionally decoupled from incident and escalation handling.
+
+To support another tool, create a Spring component that implements:
+
+```java
+public interface AlertSourceAdapter {
+    String source();
+    UnifiedAlert toUnifiedAlert(JsonNode payload);
+}
+```
+
+For example, a Prometheus adapter would return `source()` as `prometheus`, then alerts can be posted to:
+
+```text
+POST /api/alerts/prometheus
+```
+
+The rest of the system still receives only `UnifiedAlert`, so escalation policies, acknowledgement, and resolution do not depend on Grafana, Dynatrace, or any specific monitoring vendor.
 
 ## Useful APIs
 

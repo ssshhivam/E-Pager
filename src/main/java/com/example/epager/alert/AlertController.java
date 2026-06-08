@@ -1,10 +1,9 @@
 package com.example.epager.alert;
 
-import com.example.epager.alert.dto.DynatraceAlertRequest;
-import com.example.epager.alert.dto.GrafanaAlertRequest;
 import com.example.epager.incident.dto.IncidentResponse;
-import jakarta.validation.Valid;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,15 +20,12 @@ public class AlertController {
         this.alertService = alertService;
     }
 
-    @PostMapping("/grafana")
+    @PostMapping("/{source}")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public IncidentResponse receiveGrafanaAlert(@Valid @RequestBody GrafanaAlertRequest request) {
-        return IncidentResponse.from(alertService.processGrafanaAlert(request));
-    }
-
-    @PostMapping("/dynatrace")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    public IncidentResponse receiveDynatraceAlert(@Valid @RequestBody DynatraceAlertRequest request) {
-        return IncidentResponse.from(alertService.processDynatraceAlert(request));
+    public IncidentResponse receiveAlert(
+            @PathVariable String source,
+            @RequestBody JsonNode payload
+    ) {
+        return IncidentResponse.from(alertService.processAlert(source, payload));
     }
 }
