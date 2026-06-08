@@ -51,12 +51,12 @@ jdbc:h2:mem:epager
 
 On startup, the app creates:
 
-- `Asha Engineer`
+- `Shivam Engineer`
 - `Ravi Lead`
-- `Meera Manager`
+- `Manish Manager`
 - Escalation policy for service `payments`
 
-The `payments` policy sends the first alert to Asha, then escalates to Ravi after 5 minutes, then Meera after 10 more minutes.
+The `payments` policy sends the first alert to Shivam, then escalates to Ravi after 5 minutes, then Manish after 10 more minutes.
 
 ## Try a Grafana-style alert
 

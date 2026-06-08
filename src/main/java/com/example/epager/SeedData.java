@@ -25,9 +25,9 @@ public class SeedData implements CommandLineRunner {
             return;
         }
 
-        AppUser engineer = createUser("Asha Engineer", "asha.engineer@example.com", "+10000000001");
+        AppUser engineer = createUser("Shivam Engineer", "shivam.engineer@example.com", "+10000000001");
         AppUser lead = createUser("Ravi Lead", "ravi.lead@example.com", "+10000000002");
-        AppUser manager = createUser("Meera Manager", "meera.manager@example.com", "+10000000003");
+        AppUser manager = createUser("Manish Manager", "manish.manager@example.com", "+10000000003");
 
         EscalationPolicy policy = new EscalationPolicy();
         policy.setServiceName("payments");
