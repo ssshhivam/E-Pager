@@ -6,6 +6,8 @@ import java.util.List;
 
 public record EscalationPolicyResponse(
         Long id,
+        String projectKey,
+        String groupKey,
         String serviceName,
         boolean enabled,
         List<EscalationLevelResponse> levels
@@ -13,6 +15,8 @@ public record EscalationPolicyResponse(
     public static EscalationPolicyResponse from(EscalationPolicy policy) {
         return new EscalationPolicyResponse(
                 policy.getId(),
+                policy.getProjectKey(),
+                policy.getGroupKey(),
                 policy.getServiceName(),
                 policy.isEnabled(),
                 policy.getLevels().stream()

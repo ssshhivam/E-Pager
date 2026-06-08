@@ -171,9 +171,17 @@ POST /api/users
 GET  /api/users/{userId}/devices
 POST /api/users/{userId}/devices
 
+GET  /api/projects
+POST /api/projects
+GET  /api/projects/{projectId}/groups
+POST /api/projects/{projectId}/groups
+GET  /api/projects/groups/{groupId}/members
+POST /api/projects/groups/{groupId}/members
+
 GET  /api/escalation-policies
 POST /api/escalation-policies
 PUT  /api/escalation-policies/{policyId}
+GET  /api/escalation-policies/events
 
 GET  /api/incidents
 GET  /api/incidents/{incidentId}

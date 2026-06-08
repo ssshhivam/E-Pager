@@ -37,6 +37,18 @@ public class GrafanaAlertAdapter implements AlertSourceAdapter {
                         JsonAlertReader.generatedId()
                 ),
                 JsonAlertReader.firstNonBlank(
+                        JsonAlertReader.text(labels, "projectKey"),
+                        JsonAlertReader.text(labels, "project"),
+                        JsonAlertReader.text(labels, "project_name"),
+                        "payments"
+                ),
+                JsonAlertReader.firstNonBlank(
+                        JsonAlertReader.text(labels, "groupKey"),
+                        JsonAlertReader.text(labels, "support_group"),
+                        JsonAlertReader.text(labels, "group"),
+                        "primary-support"
+                ),
+                JsonAlertReader.firstNonBlank(
                         JsonAlertReader.text(labels, "service"),
                         JsonAlertReader.text(labels, "app"),
                         JsonAlertReader.text(labels, "job"),

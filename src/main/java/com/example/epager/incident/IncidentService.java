@@ -79,6 +79,8 @@ public class IncidentService {
         Incident incident = new Incident();
         incident.setSource(alert.source());
         incident.setExternalAlertId(alert.externalAlertId());
+        incident.setProjectKey(alert.projectKey());
+        incident.setGroupKey(alert.groupKey());
         incident.setServiceName(alert.serviceName());
         incident.setSeverity(alert.severity());
         incident.setTitle(alert.title());

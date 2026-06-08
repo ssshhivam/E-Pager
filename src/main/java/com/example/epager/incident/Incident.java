@@ -28,6 +28,12 @@ public class Incident {
     private String source;
 
     @Column(nullable = false)
+    private String projectKey;
+
+    @Column(nullable = false)
+    private String groupKey;
+
+    @Column(nullable = false)
     private String serviceName;
 
     @Column(nullable = false)
@@ -79,6 +85,22 @@ public class Incident {
 
     public void setSource(String source) {
         this.source = source;
+    }
+
+    public String getProjectKey() {
+        return projectKey;
+    }
+
+    public void setProjectKey(String projectKey) {
+        this.projectKey = projectKey;
+    }
+
+    public String getGroupKey() {
+        return groupKey;
+    }
+
+    public void setGroupKey(String groupKey) {
+        this.groupKey = groupKey;
     }
 
     public String getServiceName() {

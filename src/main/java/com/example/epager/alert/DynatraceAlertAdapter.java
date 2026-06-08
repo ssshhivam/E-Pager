@@ -18,6 +18,17 @@ public class DynatraceAlertAdapter implements AlertSourceAdapter {
                 "DYNATRACE",
                 JsonAlertReader.firstNonBlank(JsonAlertReader.text(payload, "problemId"), JsonAlertReader.generatedId()),
                 JsonAlertReader.firstNonBlank(
+                        JsonAlertReader.text(payload, "tags", "projectKey"),
+                        JsonAlertReader.text(payload, "tags", "project"),
+                        "payments"
+                ),
+                JsonAlertReader.firstNonBlank(
+                        JsonAlertReader.text(payload, "tags", "groupKey"),
+                        JsonAlertReader.text(payload, "tags", "support_group"),
+                        JsonAlertReader.text(payload, "tags", "group"),
+                        "primary-support"
+                ),
+                JsonAlertReader.firstNonBlank(
                         JsonAlertReader.text(payload, "tags", "service"),
                         JsonAlertReader.text(payload, "tags", "app"),
                         JsonAlertReader.text(payload, "impactedEntity"),

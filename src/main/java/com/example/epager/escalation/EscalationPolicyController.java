@@ -1,6 +1,7 @@
 package com.example.epager.escalation;
 
 import com.example.epager.escalation.dto.EscalationLevelRequest;
+import com.example.epager.escalation.dto.EscalationEventResponse;
 import com.example.epager.escalation.dto.EscalationPolicyRequest;
 import com.example.epager.escalation.dto.EscalationPolicyResponse;
 import com.example.epager.user.AppUser;
@@ -23,13 +24,16 @@ import java.util.List;
 public class EscalationPolicyController {
 
     private final EscalationPolicyRepository escalationPolicyRepository;
+    private final EscalationEventRepository escalationEventRepository;
     private final AppUserRepository appUserRepository;
 
     public EscalationPolicyController(
             EscalationPolicyRepository escalationPolicyRepository,
+            EscalationEventRepository escalationEventRepository,
             AppUserRepository appUserRepository
     ) {
         this.escalationPolicyRepository = escalationPolicyRepository;
+        this.escalationEventRepository = escalationEventRepository;
         this.appUserRepository = appUserRepository;
     }
 
@@ -38,6 +42,15 @@ public class EscalationPolicyController {
         return escalationPolicyRepository.findAll().stream()
                 .map(EscalationPolicyResponse::from)
                 .toList();
+    }
+
+    @GetMapping("/events")
+    public List<EscalationEventResponse> listEvents() {
+        return escalationPolicyRepository.findAll().isEmpty()
+                ? List.of()
+                : escalationEventRepository.findByCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
+                        java.time.LocalDateTime.now().minusDays(7)
+                ).stream().map(EscalationEventResponse::from).toList();
     }
 
     @PostMapping
@@ -57,6 +70,8 @@ public class EscalationPolicyController {
     }
 
     private EscalationPolicy toPolicy(EscalationPolicy policy, EscalationPolicyRequest request) {
+        policy.setProjectKey(request.projectKey());
+        policy.setGroupKey(request.groupKey());
         policy.setServiceName(request.serviceName());
         policy.setEnabled(request.enabled() == null || request.enabled());
         policy.setLevels(request.levels().stream()
