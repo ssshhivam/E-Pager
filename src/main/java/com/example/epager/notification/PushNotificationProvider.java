@@ -19,7 +19,8 @@ public class PushNotificationProvider implements NotificationProvider {
     @Override
     public NotificationResult send(NotificationRequest request) {
         log.info(
-                "Push notification to token={} title='{}' message='{}' deepLink={}",
+                "Push notification id={} to token={} title='{}' message='{}' deepLink={}",
+                request.notificationLogId(),
                 request.destination(),
                 request.title(),
                 request.message(),

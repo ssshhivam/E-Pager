@@ -142,6 +142,10 @@ GET  /api/incidents
 GET  /api/incidents/{incidentId}
 POST /api/incidents/{incidentId}/acknowledge
 POST /api/incidents/{incidentId}/resolve
+
+GET  /api/notifications
+POST /api/notifications/{notificationId}/received
+POST /api/notifications/{notificationId}/seen
 ```
 
 Acknowledgement body:
@@ -170,18 +174,47 @@ The current `PushNotificationProvider` is a simulated provider. It logs the push
 
 ```text
 channel
+status
 destination
 title
 message
 deepLink
 providerMessageId
 delivered
+sentAt
+receivedAt
+seenAt
+failedAt
 ```
 
 The deep link is:
 
 ```text
-/incidents/{incidentId}
+/incidents/{incidentId}?notificationId={notificationId}
 ```
 
 When a real web/mobile app is added, the push provider can send that deep link through Firebase Cloud Messaging, Web Push, APNS, or another push service. Clicking the notification should open the app directly on the incident details page.
+
+Notification status lifecycle:
+
+```text
+QUEUED   -> notification row created before provider call
+SENT     -> push provider accepted the notification
+RECEIVED -> app/browser received the push event and called /received
+SEEN     -> user clicked/opened the notification and app called /seen
+FAILED   -> provider failed or no active device/provider exists
+```
+
+The client app should call:
+
+```text
+POST /api/notifications/{notificationId}/received
+```
+
+when the push event reaches the device/browser, and:
+
+```text
+POST /api/notifications/{notificationId}/seen
+```
+
+when the user clicks the notification or opens the incident from it.

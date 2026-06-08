@@ -1,6 +1,7 @@
 package com.example.epager.notification;
 
 public record NotificationRequest(
+        Long notificationLogId,
         Long incidentId,
         Long userId,
         NotificationChannel channel,

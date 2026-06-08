@@ -23,15 +23,19 @@ public class NotificationLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     private Incident incident;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     private AppUser recipient;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NotificationChannel channel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private NotificationStatus status = NotificationStatus.QUEUED;
 
     @Column(nullable = false)
     private String destination;
@@ -50,6 +54,10 @@ public class NotificationLog {
     private boolean delivered;
 
     private LocalDateTime createdAt;
+    private LocalDateTime sentAt;
+    private LocalDateTime receivedAt;
+    private LocalDateTime seenAt;
+    private LocalDateTime failedAt;
 
     public Long getId() {
         return id;
@@ -81,6 +89,14 @@ public class NotificationLog {
 
     public void setChannel(NotificationChannel channel) {
         this.channel = channel;
+    }
+
+    public NotificationStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(NotificationStatus status) {
+        this.status = status;
     }
 
     public String getDestination() {
@@ -145,5 +161,37 @@ public class NotificationLog {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getSentAt() {
+        return sentAt;
+    }
+
+    public void setSentAt(LocalDateTime sentAt) {
+        this.sentAt = sentAt;
+    }
+
+    public LocalDateTime getReceivedAt() {
+        return receivedAt;
+    }
+
+    public void setReceivedAt(LocalDateTime receivedAt) {
+        this.receivedAt = receivedAt;
+    }
+
+    public LocalDateTime getSeenAt() {
+        return seenAt;
+    }
+
+    public void setSeenAt(LocalDateTime seenAt) {
+        this.seenAt = seenAt;
+    }
+
+    public LocalDateTime getFailedAt() {
+        return failedAt;
+    }
+
+    public void setFailedAt(LocalDateTime failedAt) {
+        this.failedAt = failedAt;
     }
 }
