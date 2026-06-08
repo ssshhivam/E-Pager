@@ -1,0 +1,49 @@
+package com.example.epager.incident;
+
+import com.example.epager.incident.dto.AcknowledgeIncidentRequest;
+import com.example.epager.incident.dto.IncidentResponse;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/incidents")
+public class IncidentController {
+
+    private final IncidentService incidentService;
+
+    public IncidentController(IncidentService incidentService) {
+        this.incidentService = incidentService;
+    }
+
+    @GetMapping
+    public List<IncidentResponse> listIncidents() {
+        return incidentService.findAll().stream()
+                .map(IncidentResponse::from)
+                .toList();
+    }
+
+    @GetMapping("/{incidentId}")
+    public IncidentResponse getIncident(@PathVariable Long incidentId) {
+        return IncidentResponse.from(incidentService.findById(incidentId));
+    }
+
+    @PostMapping("/{incidentId}/acknowledge")
+    public IncidentResponse acknowledge(
+            @PathVariable Long incidentId,
+            @Valid @RequestBody AcknowledgeIncidentRequest request
+    ) {
+        return IncidentResponse.from(incidentService.acknowledge(incidentId, request.userId()));
+    }
+
+    @PostMapping("/{incidentId}/resolve")
+    public IncidentResponse resolve(@PathVariable Long incidentId) {
+        return IncidentResponse.from(incidentService.resolve(incidentId));
+    }
+}

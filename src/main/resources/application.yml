@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: epager
+  datasource:
+    url: jdbc:h2:mem:epager;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+server:
+  port: 8080
+
+epager:
+  scheduler:
+    escalation-check-rate-ms: 60000
+
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/epager
+    username: epager
+    password: epager
+  jpa:
+    hibernate:
+      ddl-auto: validate
