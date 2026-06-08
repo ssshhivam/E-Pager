@@ -1,6 +1,9 @@
 target/
 work/
 outputs/
+.classpath
+.project
+.settings/
 .idea/
 *.iml
 .vscode/

@@ -19,6 +19,20 @@ A Spring Boot MVP for receiving monitoring alerts and escalating them until some
 
 The project is configured for Java 17.
 
+Start PostgreSQL locally:
+
+```powershell
+docker compose up -d postgres
+```
+
+If you are using your locally installed PostgreSQL service instead of Docker, create/reset the `epager` database and user:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -f database\postgres-setup.sql
+```
+
+If your PostgreSQL admin user is not `postgres`, replace `-U postgres` with your admin username.
+
 ```powershell
 mvn spring-boot:run
 ```
@@ -30,13 +44,36 @@ mvn package -DskipTests
 java -jar target/epager-0.0.1-SNAPSHOT.jar
 ```
 
+Default PostgreSQL connection:
+
+```text
+jdbc:postgresql://localhost:5432/epager
+username: epager
+password: epager
+```
+
+Override with environment variables:
+
+```powershell
+$env:EPAGER_DB_URL="jdbc:postgresql://localhost:5432/epager"
+$env:EPAGER_DB_USERNAME="epager"
+$env:EPAGER_DB_PASSWORD="epager"
+mvn spring-boot:run
+```
+
+Use the old in-memory H2 profile only for quick experiments:
+
+```powershell
+mvn spring-boot:run -Dspring-boot.run.profiles=h2
+```
+
 The app starts on:
 
 ```text
 http://localhost:8080
 ```
 
-H2 console:
+H2 console, only when using the `h2` profile:
 
 ```text
 http://localhost:8080/h2-console

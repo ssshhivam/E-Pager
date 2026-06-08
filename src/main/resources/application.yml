@@ -2,12 +2,9 @@ spring:
   application:
     name: epager
   datasource:
-    url: jdbc:h2:mem:epager;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
-    username: sa
-    password:
-  h2:
-    console:
-      enabled: true
+    url: ${EPAGER_DB_URL:jdbc:postgresql://localhost:5432/epager}
+    username: ${EPAGER_DB_USERNAME:epager}
+    password: ${EPAGER_DB_PASSWORD:epager}
   jpa:
     hibernate:
       ddl-auto: update
@@ -24,11 +21,17 @@ epager:
 spring:
   config:
     activate:
-      on-profile: postgres
+      on-profile: h2
   datasource:
-    url: jdbc:postgresql://localhost:5432/epager
-    username: epager
-    password: epager
+    url: jdbc:h2:mem:epager;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
