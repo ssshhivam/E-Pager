@@ -233,6 +233,71 @@ Invoke-RestMethod -Method Post http://localhost:8080/api/alerts/grafana `
   -Body $body
 ```
 
+## Dynatrace gateway
+
+For production-style Dynatrace integration, use the gateway endpoint instead of sending Dynatrace directly to `/api/alerts/dynatrace`:
+
+```text
+POST /gateway/webhooks/dynatrace
+Authorization: Bearer <EPAGER_GATEWAY_DYNATRACE_TOKEN>
+Content-Type: application/json
+```
+
+Flow:
+
+```text
+Dynatrace -> /gateway/webhooks/dynatrace -> /api/alerts/dynatrace -> incident/escalation/notification
+```
+
+The gateway validates Dynatrace with a static bearer token, then signs the raw JSON payload using E-Pager's HMAC format:
+
+```text
+X-EPAGER-TIMESTAMP: <current UTC timestamp>
+X-EPAGER-SIGNATURE: sha256=<HMAC_SHA256(secret, timestamp + ":" + rawBody)>
+```
+
+Configure these values with environment variables:
+
+```powershell
+$env:EPAGER_GATEWAY_DYNATRACE_TOKEN="token-that-dynatrace-will-send"
+$env:EPAGER_GATEWAY_EPAGER_ALERT_URL="http://localhost:8080/api/alerts/dynatrace"
+$env:EPAGER_GATEWAY_EPAGER_HMAC_SECRET="demo-webhook-token"
+```
+
+In Dynatrace, create a custom problem notification:
+
+```text
+Settings Classic -> Integration -> Problem notifications -> Add notification -> Custom integration
+```
+
+Use this webhook URL:
+
+```text
+https://your-public-epager-host/gateway/webhooks/dynatrace
+```
+
+Add headers:
+
+```text
+Authorization: Bearer token-that-dynatrace-will-send
+Content-Type: application/json
+```
+
+Example custom payload:
+
+```json
+{
+  "problemId": "{ProblemID}",
+  "problemTitle": "{ProblemTitle}",
+  "problemImpact": "{ProblemImpact}",
+  "state": "{State}",
+  "impactedEntity": "{ImpactedEntity}",
+  "impactedEntities": {ImpactedEntities},
+  "problemDetails": {ProblemDetailsJSON},
+  "tags": "{Tags}"
+}
+```
+
 ## Add another alert source
 
 Incoming alert sources are intentionally decoupled from incident and escalation handling.

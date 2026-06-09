@@ -1,5 +1,6 @@
 package com.example.epager;
 
+import com.example.epager.gateway.GatewayAuthenticationException;
 import com.example.epager.webhook.WebhookAuthenticationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,6 +24,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(WebhookAuthenticationException.class)
     public ResponseEntity<Map<String, Object>> handleWebhookAuthentication(WebhookAuthenticationException exception) {
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
+    }
+
+    @ExceptionHandler(GatewayAuthenticationException.class)
+    public ResponseEntity<Map<String, Object>> handleGatewayAuthentication(GatewayAuthenticationException exception) {
         return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
     }
 

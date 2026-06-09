@@ -145,6 +145,14 @@ class RoleBasedAccessIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void dynatraceGatewayRejectsMissingGatewayToken() throws Exception {
+        mockMvc.perform(post("/gateway/webhooks/dynatrace")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private String login(String email) throws Exception {
         String response = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
