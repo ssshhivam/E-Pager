@@ -24,6 +24,10 @@ public class WebhookAuditLog {
 
     private boolean tokenPresent;
 
+    private boolean signaturePresent;
+
+    private boolean timestampPresent;
+
     private LocalDateTime createdAt;
 
     public Long getId() {
@@ -68,6 +72,22 @@ public class WebhookAuditLog {
 
     public void setTokenPresent(boolean tokenPresent) {
         this.tokenPresent = tokenPresent;
+    }
+
+    public boolean isSignaturePresent() {
+        return signaturePresent;
+    }
+
+    public void setSignaturePresent(boolean signaturePresent) {
+        this.signaturePresent = signaturePresent;
+    }
+
+    public boolean isTimestampPresent() {
+        return timestampPresent;
+    }
+
+    public void setTimestampPresent(boolean timestampPresent) {
+        this.timestampPresent = timestampPresent;
     }
 
     public LocalDateTime getCreatedAt() {

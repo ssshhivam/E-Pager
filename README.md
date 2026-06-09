@@ -7,7 +7,7 @@ A Spring Boot MVP for receiving monitoring alerts and escalating them until some
 - Grafana webhook endpoint
 - Dynatrace webhook endpoint
 - Source adapter pattern so new monitoring tools do not touch incident/escalation logic
-- Webhook token validation and webhook audit logs
+- HMAC webhook signature validation and webhook audit logs
 - Incident lifecycle: `TRIGGERED`, `ACKNOWLEDGED`, `RESOLVED`
 - Escalation policies by service name
 - Scheduled escalation checks
@@ -114,7 +114,7 @@ On startup, the app creates:
 - `Ravi Lead`
 - `Manish Manager`
 - Escalation policy for service `payments`
-- Webhook sources `grafana` and `dynatrace` with token `demo-webhook-token`
+- Webhook sources `grafana` and `dynatrace` with HMAC secret `demo-webhook-token`
 
 The `payments` policy sends the first alert to Shivam, then escalates to Ravi after 5 minutes, then Manish after 10 more minutes.
 
@@ -123,31 +123,42 @@ Each seeded user also has a demo push device token so alert delivery is logged a
 ## Try a Grafana-style alert
 
 ```powershell
-Invoke-RestMethod -Method Post http://localhost:8080/api/alerts/grafana `
-  -Headers @{ "X-EPAGER-WEBHOOK-TOKEN" = "demo-webhook-token" } `
-  -ContentType "application/json" `
-  -Body '{
-    "title": "High CPU on payments",
-    "message": "CPU usage crossed 90%",
-    "commonLabels": {
-      "service": "payments",
-      "severity": "critical",
-      "alertname": "HighCPU"
-    },
-    "alerts": [
-      {
-        "fingerprint": "grafana-payments-cpu-001",
-        "labels": {
-          "service": "payments",
-          "severity": "critical"
-        },
-        "annotations": {
-          "summary": "High CPU on payments",
-          "description": "CPU usage crossed 90%"
-        }
+$body = '{
+  "title": "High CPU on payments",
+  "message": "CPU usage crossed 90%",
+  "commonLabels": {
+    "service": "payments",
+    "severity": "critical",
+    "alertname": "HighCPU"
+  },
+  "alerts": [
+    {
+      "fingerprint": "grafana-payments-cpu-001",
+      "labels": {
+        "service": "payments",
+        "severity": "critical"
+      },
+      "annotations": {
+        "summary": "High CPU on payments",
+        "description": "CPU usage crossed 90%"
       }
-    ]
-  }'
+    }
+  ]
+}'
+
+$timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$secret = "demo-webhook-token"
+$message = "$timestamp`:$body"
+$hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret))
+$signature = "sha256=" + [Convert]::ToHexString($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($message))).ToLower()
+
+Invoke-RestMethod -Method Post http://localhost:8080/api/alerts/grafana `
+  -Headers @{
+    "X-EPAGER-TIMESTAMP" = $timestamp
+    "X-EPAGER-SIGNATURE" = $signature
+  } `
+  -ContentType "application/json" `
+  -Body $body
 ```
 
 ## Add another alert source
@@ -177,8 +188,9 @@ The rest of the system still receives only `UnifiedAlert`, so escalation policie
 POST /api/alerts/grafana
 POST /api/alerts/dynatrace
 
-Header required for alert webhooks:
-X-EPAGER-WEBHOOK-TOKEN: demo-webhook-token
+Headers required for alert webhooks:
+X-EPAGER-TIMESTAMP: current UTC timestamp, for example 2026-06-09T10:30:00Z
+X-EPAGER-SIGNATURE: sha256=<HMAC_SHA256(secret, timestamp + ":" + rawBody)>
 
 GET  /api/users
 POST /api/users

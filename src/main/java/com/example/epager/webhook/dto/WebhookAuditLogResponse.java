@@ -11,6 +11,8 @@ public record WebhookAuditLogResponse(
         String rejectionReason,
         String remoteAddress,
         boolean tokenPresent,
+        boolean signaturePresent,
+        boolean timestampPresent,
         LocalDateTime createdAt
 ) {
     public static WebhookAuditLogResponse from(WebhookAuditLog auditLog) {
@@ -21,6 +23,8 @@ public record WebhookAuditLogResponse(
                 auditLog.getRejectionReason(),
                 auditLog.getRemoteAddress(),
                 auditLog.isTokenPresent(),
+                auditLog.isSignaturePresent(),
+                auditLog.isTimestampPresent(),
                 auditLog.getCreatedAt()
         );
     }

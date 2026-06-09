@@ -1,6 +1,7 @@
 package com.example.epager;
 
 import com.example.epager.webhook.WebhookAuthenticationException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(WebhookAuthenticationException.class)
     public ResponseEntity<Map<String, Object>> handleWebhookAuthentication(WebhookAuthenticationException exception) {
         return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
+    }
+
+    @ExceptionHandler(JsonProcessingException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidJson(JsonProcessingException exception) {
+        return error(HttpStatus.BAD_REQUEST, "Invalid JSON payload");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
