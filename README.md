@@ -383,7 +383,7 @@ Register a push device:
 
 The escalation engine resolves the next user, then `NotificationService` sends `PUSH` notifications to every active device registered for that user.
 
-The current `PushNotificationProvider` is a simulated provider. It logs the push payload and stores a `notification_logs` entry with:
+By default, `PushNotificationProvider` is a simulated provider. It logs the push payload and stores a `notification_logs` entry with:
 
 ```text
 channel
@@ -407,6 +407,39 @@ The deep link is:
 ```
 
 When a real web/mobile app is added, the push provider can send that deep link through Firebase Cloud Messaging, Web Push, APNS, or another push service. Clicking the notification should open the app directly on the incident details page.
+
+## Firebase Cloud Messaging
+
+E-Pager can send real push notifications through Firebase Cloud Messaging.
+
+Set these environment variables before starting the app:
+
+```powershell
+$env:EPAGER_FIREBASE_ENABLED="true"
+$env:EPAGER_FIREBASE_SERVICE_ACCOUNT_PATH="C:\secure\firebase-service-account.json"
+$env:EPAGER_FIREBASE_PROJECT_ID="your-firebase-project-id"
+```
+
+When Firebase is enabled:
+
+```text
+NotificationService -> FirebasePushNotificationProvider -> Firebase Cloud Messaging
+```
+
+The `pushToken` stored in `user_devices` must be the FCM registration token from the web or mobile client.
+
+The FCM message contains:
+
+```text
+notification title/body
+notificationLogId
+incidentId
+userId
+severity
+deepLink
+```
+
+If Firebase is disabled or not configured, E-Pager keeps using the simulated push provider.
 
 Notification status lifecycle:
 
