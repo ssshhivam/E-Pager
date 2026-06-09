@@ -13,6 +13,7 @@ A Spring Boot MVP for receiving monitoring alerts and escalating them until some
 - Scheduled escalation checks
 - Push-first notification dispatcher with pluggable providers
 - Notification delivery event timeline for queued, sent, received, seen, and failed transitions
+- JWT login and role-based API access for admin, manager, and engineer users
 - User device registration for browser/mobile push tokens
 - PostgreSQL as the default database
 - Flyway migrations for schema management
@@ -120,6 +121,7 @@ jdbc:h2:mem:epager
 
 On startup, the app creates:
 
+- `E-Pager Admin`
 - `Shivam Engineer`
 - `Ravi Lead`
 - `Manish Manager`
@@ -129,6 +131,44 @@ On startup, the app creates:
 The `payments` policy sends the first alert to Shivam, then escalates to Ravi after 5 minutes, then Manish after 10 more minutes.
 
 Each seeded user also has a demo push device token so alert delivery is logged as a simulated push notification.
+
+Seeded login credentials use password `password`:
+
+```text
+admin@epager.local          ADMIN
+shivam.engineer@example.com ENGINEER
+ravi.lead@example.com       MANAGER
+manish.manager@example.com  MANAGER
+```
+
+## Security and roles
+
+Login returns a bearer token:
+
+```text
+POST /api/auth/login
+```
+
+```json
+{
+  "email": "admin@epager.local",
+  "password": "password"
+}
+```
+
+Use the returned token in Swagger's Authorize button or in API headers:
+
+```text
+Authorization: Bearer <accessToken>
+```
+
+Role permissions:
+
+```text
+ADMIN    -> manage users, projects, webhook sources, escalation policies
+MANAGER  -> manage escalation policies and incidents
+ENGINEER -> view, acknowledge, and resolve assigned incidents
+```
 
 ## Try a Grafana-style alert
 

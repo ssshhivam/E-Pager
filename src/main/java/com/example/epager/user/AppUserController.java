@@ -4,6 +4,7 @@ import com.example.epager.notification.UserDeviceService;
 import com.example.epager.notification.dto.RegisterDeviceRequest;
 import com.example.epager.notification.dto.UserDeviceResponse;
 import jakarta.validation.Valid;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,10 +20,16 @@ public class AppUserController {
 
     private final AppUserRepository appUserRepository;
     private final UserDeviceService userDeviceService;
+    private final PasswordEncoder passwordEncoder;
 
-    public AppUserController(AppUserRepository appUserRepository, UserDeviceService userDeviceService) {
+    public AppUserController(
+            AppUserRepository appUserRepository,
+            UserDeviceService userDeviceService,
+            PasswordEncoder passwordEncoder
+    ) {
         this.appUserRepository = appUserRepository;
         this.userDeviceService = userDeviceService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @GetMapping
@@ -38,6 +45,10 @@ public class AppUserController {
         user.setName(request.name());
         user.setEmail(request.email());
         user.setPhoneNumber(request.phoneNumber());
+        user.setPasswordHash(passwordEncoder.encode(
+                request.password() == null || request.password().isBlank() ? "password" : request.password()
+        ));
+        user.setRole(request.role() == null ? AppRole.ENGINEER : request.role());
         return AppUserResponse.from(appUserRepository.save(user));
     }
 

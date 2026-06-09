@@ -18,4 +18,6 @@ public interface IncidentRepository extends JpaRepository<Incident, Long> {
             IncidentStatus status,
             LocalDateTime now
     );
+
+    List<Incident> findByAssignedUserId(Long userId);
 }

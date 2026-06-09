@@ -12,10 +12,12 @@ import com.example.epager.project.SupportGroup;
 import com.example.epager.project.SupportGroupMember;
 import com.example.epager.project.SupportGroupMemberRepository;
 import com.example.epager.project.SupportGroupRepository;
+import com.example.epager.user.AppRole;
 import com.example.epager.user.AppUser;
 import com.example.epager.user.AppUserRepository;
 import com.example.epager.webhook.WebhookSecurityService;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -30,6 +32,7 @@ public class SeedData implements CommandLineRunner {
     private final SupportGroupRepository supportGroupRepository;
     private final SupportGroupMemberRepository supportGroupMemberRepository;
     private final WebhookSecurityService webhookSecurityService;
+    private final PasswordEncoder passwordEncoder;
 
     public SeedData(
             AppUserRepository appUserRepository,
@@ -38,7 +41,8 @@ public class SeedData implements CommandLineRunner {
             ProjectRepository projectRepository,
             SupportGroupRepository supportGroupRepository,
             SupportGroupMemberRepository supportGroupMemberRepository,
-            WebhookSecurityService webhookSecurityService
+            WebhookSecurityService webhookSecurityService,
+            PasswordEncoder passwordEncoder
     ) {
         this.appUserRepository = appUserRepository;
         this.escalationPolicyRepository = escalationPolicyRepository;
@@ -47,6 +51,7 @@ public class SeedData implements CommandLineRunner {
         this.supportGroupRepository = supportGroupRepository;
         this.supportGroupMemberRepository = supportGroupMemberRepository;
         this.webhookSecurityService = webhookSecurityService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -54,12 +59,15 @@ public class SeedData implements CommandLineRunner {
         seedWebhookSources();
 
         if (appUserRepository.count() > 0) {
+            ensureExistingUsersHaveSecurityFields();
+            seedSecurityUsers();
             return;
         }
 
-        AppUser engineer = createUser("Shivam Engineer", "shivam.engineer@example.com", "+10000000001");
-        AppUser lead = createUser("Ravi Lead", "ravi.lead@example.com", "+10000000002");
-        AppUser manager = createUser("Manish Manager", "manish.manager@example.com", "+10000000003");
+        createUser("E-Pager Admin", "admin@epager.local", "+10000000000", AppRole.ADMIN);
+        AppUser engineer = createUser("Shivam Engineer", "shivam.engineer@example.com", "+10000000001", AppRole.ENGINEER);
+        AppUser lead = createUser("Ravi Lead", "ravi.lead@example.com", "+10000000002", AppRole.MANAGER);
+        AppUser manager = createUser("Manish Manager", "manish.manager@example.com", "+10000000003", AppRole.MANAGER);
 
         createDevice(engineer, DevicePlatform.WEB, "demo-web-token-shivam", "Shivam browser");
         createDevice(lead, DevicePlatform.ANDROID, "demo-android-token-ravi", "Ravi Android");
@@ -82,6 +90,28 @@ public class SeedData implements CommandLineRunner {
         escalationPolicyRepository.save(policy);
     }
 
+    private void seedSecurityUsers() {
+        appUserRepository.findByEmailIgnoreCase("admin@epager.local")
+                .orElseGet(() -> createUser("E-Pager Admin", "admin@epager.local", "+10000000000", AppRole.ADMIN));
+    }
+
+    private void ensureExistingUsersHaveSecurityFields() {
+        appUserRepository.findAll().forEach(user -> {
+            boolean changed = false;
+            if (user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+                user.setPasswordHash(passwordEncoder.encode("password"));
+                changed = true;
+            }
+            if (user.getRole() == null) {
+                user.setRole(roleForEmail(user.getEmail()));
+                changed = true;
+            }
+            if (changed) {
+                appUserRepository.save(user);
+            }
+        });
+    }
+
     private void seedWebhookSources() {
         webhookSecurityService.createSource(
                 "grafana",
@@ -97,12 +127,24 @@ public class SeedData implements CommandLineRunner {
         );
     }
 
-    private AppUser createUser(String name, String email, String phoneNumber) {
+    private AppUser createUser(String name, String email, String phoneNumber, AppRole role) {
         AppUser user = new AppUser();
         user.setName(name);
         user.setEmail(email);
         user.setPhoneNumber(phoneNumber);
+        user.setPasswordHash(passwordEncoder.encode("password"));
+        user.setRole(role);
         return appUserRepository.save(user);
+    }
+
+    private AppRole roleForEmail(String email) {
+        if ("admin@epager.local".equalsIgnoreCase(email)) {
+            return AppRole.ADMIN;
+        }
+        if ("ravi.lead@example.com".equalsIgnoreCase(email) || "manish.manager@example.com".equalsIgnoreCase(email)) {
+            return AppRole.MANAGER;
+        }
+        return AppRole.ENGINEER;
     }
 
     private void createDevice(AppUser user, DevicePlatform platform, String pushToken, String deviceName) {
