@@ -165,6 +165,21 @@ class RoleBasedAccessIntegrationTest {
     }
 
     @Test
+    void adminCannotCreateUserWithoutPassword() throws Exception {
+        String adminToken = login("admin@epager.local");
+
+        mockMvc.perform(post("/api/users")
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "No Password User",
+                                "email", "no.password." + System.nanoTime() + "@example.com",
+                                "role", "ENGINEER"
+                        ))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void refreshTokenRotatesAndRejectsOldRefreshToken() throws Exception {
         LoginResponse login = loginResponse("admin@epager.local", "password");
 

@@ -30,12 +30,13 @@ public class JwtTokenService {
     }
 
     public TokenPair createAccessToken(Long userId, String email, AppRole role) {
-        Instant expiresAt = Instant.now().plusSeconds(ttlSeconds);
+        Instant issuedAt = Instant.now();
+        Instant expiresAt = issuedAt.plusSeconds(ttlSeconds);
         String token = Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("email", email)
                 .claim("role", role.name())
-                .issuedAt(Date.from(Instant.now()))
+                .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(expiresAt))
                 .signWith(signingKey, Jwts.SIG.HS256)
                 .compact();

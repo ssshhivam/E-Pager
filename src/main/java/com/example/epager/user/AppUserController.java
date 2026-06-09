@@ -45,9 +45,7 @@ public class AppUserController {
         user.setName(request.name());
         user.setEmail(request.email());
         user.setPhoneNumber(request.phoneNumber());
-        user.setPasswordHash(passwordEncoder.encode(
-                request.password() == null || request.password().isBlank() ? "password" : request.password()
-        ));
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(request.role() == null ? AppRole.ENGINEER : request.role());
         return AppUserResponse.from(appUserRepository.save(user));
     }

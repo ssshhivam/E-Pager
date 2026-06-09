@@ -30,12 +30,13 @@ public class RefreshTokenService {
 
     @Transactional
     public IssuedRefreshToken issue(AppUser user) {
+        LocalDateTime now = LocalDateTime.now();
         String token = randomToken();
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
         refreshToken.setTokenHash(hash(token));
-        refreshToken.setCreatedAt(LocalDateTime.now());
-        refreshToken.setExpiresAt(LocalDateTime.now().plusSeconds(ttlSeconds));
+        refreshToken.setCreatedAt(now);
+        refreshToken.setExpiresAt(now.plusSeconds(ttlSeconds));
         RefreshToken saved = refreshTokenRepository.save(refreshToken);
         return new IssuedRefreshToken(token, saved.getExpiresAt());
     }
