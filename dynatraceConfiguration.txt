@@ -1,0 +1,136 @@
+Dynatrace Configuration for E-Pager
+===================================
+
+Goal
+----
+Configure Dynatrace to send a POST request to E-Pager whenever Dynatrace detects a critical/problem condition.
+
+
+1. E-Pager Gateway URL
+----------------------
+Dynatrace should call the E-Pager gateway endpoint, not the internal alert endpoint directly.
+
+Webhook URL:
+
+https://your-public-epager-host/gateway/webhooks/dynatrace
+
+For local testing with ngrok, it may look like:
+
+https://abc123.ngrok-free.app/gateway/webhooks/dynatrace
+
+Important:
+Dynatrace cannot call http://localhost:8080 from Dynatrace cloud. E-Pager must be reachable through a public HTTPS URL.
+
+
+2. E-Pager Environment Variables
+--------------------------------
+Set these before starting E-Pager:
+
+EPAGER_GATEWAY_DYNATRACE_TOKEN=dynatrace-secret-token
+EPAGER_GATEWAY_EPAGER_ALERT_URL=http://localhost:8080/api/alerts/dynatrace
+EPAGER_GATEWAY_EPAGER_HMAC_SECRET=demo-webhook-token
+
+PowerShell example:
+
+$env:EPAGER_GATEWAY_DYNATRACE_TOKEN="dynatrace-secret-token"
+$env:EPAGER_GATEWAY_EPAGER_ALERT_URL="http://localhost:8080/api/alerts/dynatrace"
+$env:EPAGER_GATEWAY_EPAGER_HMAC_SECRET="demo-webhook-token"
+
+
+3. Dynatrace Setup Path
+-----------------------
+In Dynatrace, go to:
+
+Settings Classic -> Integration -> Problem notifications
+
+Then:
+
+Add notification -> Custom integration
+
+
+4. Dynatrace Custom Integration Fields
+--------------------------------------
+Display name:
+
+E-Pager Dynatrace Webhook
+
+Webhook URL:
+
+https://your-public-epager-host/gateway/webhooks/dynatrace
+
+HTTP headers:
+
+Authorization: Bearer dynatrace-secret-token
+Content-Type: application/json
+
+
+5. Dynatrace Custom Payload
+---------------------------
+Use this JSON payload:
+
+{
+  "problemId": "{ProblemID}",
+  "problemTitle": "{ProblemTitle}",
+  "problemImpact": "{ProblemImpact}",
+  "state": "{State}",
+  "impactedEntity": "{ImpactedEntity}",
+  "impactedEntities": {ImpactedEntities},
+  "problemDetails": {ProblemDetailsJSON},
+  "tags": "{Tags}"
+}
+
+Note:
+{ImpactedEntities} and {ProblemDetailsJSON} should not be inside quotes because Dynatrace replaces them with JSON objects/arrays.
+
+
+6. Alerting Profile
+-------------------
+Assign an alerting profile in Dynatrace.
+
+The alerting profile decides which Dynatrace problems should be sent to E-Pager.
+
+Example:
+Send only important problem categories such as:
+
+- Availability
+- Error
+- Slowdown
+- Resource
+- Custom
+
+
+7. Test
+-------
+In Dynatrace custom integration, click:
+
+Send test notification
+
+Expected flow:
+
+Dynatrace
+  -> POST /gateway/webhooks/dynatrace
+  -> E-Pager gateway validates Authorization token
+  -> Gateway signs raw payload using HMAC
+  -> POST /api/alerts/dynatrace
+  -> DynatraceAlertAdapter converts payload to UnifiedAlert
+  -> E-Pager creates incident
+  -> Escalation starts
+  -> Assigned user receives notification
+
+
+8. Why Gateway Is Used
+----------------------
+Dynatrace can send a POST request with static headers, but it cannot easily generate E-Pager's dynamic HMAC signature.
+
+So the gateway handles:
+
+- validating Dynatrace token
+- generating current timestamp
+- calculating HMAC signature
+- forwarding the alert to E-Pager's internal alert API
+
+Security flow:
+
+Dynatrace knows only the gateway token.
+Gateway knows the E-Pager HMAC secret.
+E-Pager accepts only correctly signed alert payloads.
