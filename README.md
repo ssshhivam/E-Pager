@@ -87,6 +87,28 @@ src/main/resources/db/migration
 
 Hibernate is configured to validate the schema instead of silently changing it.
 
+## Test
+
+Integration tests use PostgreSQL, not H2. Create a separate test database once:
+
+```powershell
+$env:PGPASSWORD="your-postgres-admin-password"
+& "C:\Program Files\PostgreSQL\18\bin\createdb.exe" -U postgres -h localhost -O epager epager_test
+```
+
+Run tests with the test database password:
+
+```powershell
+$env:EPAGER_TEST_DB_PASSWORD="your-epager-db-password"
+mvn test
+```
+
+The role-based access integration test connects to:
+
+```text
+jdbc:postgresql://localhost:5432/epager_test
+```
+
 The app starts on:
 
 ```text
