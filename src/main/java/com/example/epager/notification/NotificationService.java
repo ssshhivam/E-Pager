@@ -16,15 +16,18 @@ import java.util.stream.Collectors;
 public class NotificationService {
 
     private final NotificationLogRepository notificationLogRepository;
+    private final NotificationDeliveryEventRepository notificationDeliveryEventRepository;
     private final UserDeviceRepository userDeviceRepository;
     private final Map<NotificationChannel, NotificationProvider> providers;
 
     public NotificationService(
             NotificationLogRepository notificationLogRepository,
+            NotificationDeliveryEventRepository notificationDeliveryEventRepository,
             UserDeviceRepository userDeviceRepository,
             List<NotificationProvider> providers
     ) {
         this.notificationLogRepository = notificationLogRepository;
+        this.notificationDeliveryEventRepository = notificationDeliveryEventRepository;
         this.userDeviceRepository = userDeviceRepository;
         this.providers = providers.stream()
                 .collect(Collectors.toMap(NotificationProvider::channel, Function.identity()));
@@ -62,17 +65,20 @@ public class NotificationService {
     }
 
     @Transactional
-    public NotificationLog markReceived(Long notificationLogId) {
+    public NotificationLog markReceived(Long notificationLogId, String clientInfo) {
         NotificationLog log = findLog(notificationLogId);
         if (log.getStatus() != NotificationStatus.SEEN) {
             log.setStatus(NotificationStatus.RECEIVED);
         }
         log.setReceivedAt(LocalDateTime.now());
-        return notificationLogRepository.save(log);
+        NotificationLog savedLog = notificationLogRepository.save(log);
+        updateDeviceLastSeen(log);
+        recordDeliveryEvent(savedLog, NotificationStatus.RECEIVED, "Client reported notification received", clientInfo);
+        return savedLog;
     }
 
     @Transactional
-    public NotificationLog markSeen(Long notificationLogId) {
+    public NotificationLog markSeen(Long notificationLogId, String clientInfo) {
         NotificationLog log = findLog(notificationLogId);
         LocalDateTime now = LocalDateTime.now();
         if (log.getReceivedAt() == null) {
@@ -80,7 +86,15 @@ public class NotificationService {
         }
         log.setStatus(NotificationStatus.SEEN);
         log.setSeenAt(now);
-        return notificationLogRepository.save(log);
+        NotificationLog savedLog = notificationLogRepository.save(log);
+        updateDeviceLastSeen(log);
+        recordDeliveryEvent(savedLog, NotificationStatus.SEEN, "User opened notification", clientInfo);
+        return savedLog;
+    }
+
+    @Transactional(readOnly = true)
+    public List<NotificationDeliveryEvent> findDeliveryEvents(Long notificationLogId) {
+        return notificationDeliveryEventRepository.findByNotificationLogOrderByCreatedAtAsc(findLog(notificationLogId));
     }
 
     private NotificationRequest pushRequest(
@@ -124,7 +138,9 @@ public class NotificationService {
         log.setDeepLink("/incidents/" + incident.getId());
         log.setDelivered(false);
         log.setCreatedAt(LocalDateTime.now());
-        return notificationLogRepository.save(log);
+        NotificationLog savedLog = notificationLogRepository.save(log);
+        recordDeliveryEvent(savedLog, NotificationStatus.QUEUED, "Notification queued for provider", null);
+        return savedLog;
     }
 
     private void markProviderResult(NotificationLog log, NotificationResult result) {
@@ -135,11 +151,14 @@ public class NotificationService {
             log.setStatus(NotificationStatus.SENT);
             log.setSentAt(LocalDateTime.now());
             log.setDeepLink(deepLink(log.getIncident(), log));
+            notificationLogRepository.save(log);
+            recordDeliveryEvent(log, NotificationStatus.SENT, "Provider accepted notification", null);
         } else {
             log.setStatus(NotificationStatus.FAILED);
             log.setFailedAt(LocalDateTime.now());
+            notificationLogRepository.save(log);
+            recordDeliveryEvent(log, NotificationStatus.FAILED, result.errorMessage(), null);
         }
-        notificationLogRepository.save(log);
     }
 
     private String title(Incident incident) {
@@ -152,5 +171,33 @@ public class NotificationService {
 
     private String deepLink(Incident incident, NotificationLog log) {
         return "/incidents/" + incident.getId() + "?notificationId=" + log.getId();
+    }
+
+    private void recordDeliveryEvent(
+            NotificationLog log,
+            NotificationStatus status,
+            String detail,
+            String clientInfo
+    ) {
+        NotificationDeliveryEvent event = new NotificationDeliveryEvent();
+        event.setNotificationLog(log);
+        event.setStatus(status);
+        event.setDetail(detail);
+        event.setClientInfo(clientInfo);
+        event.setCreatedAt(LocalDateTime.now());
+        notificationDeliveryEventRepository.save(event);
+    }
+
+    private void updateDeviceLastSeen(NotificationLog log) {
+        if (log.getRecipient() == null || log.getDestination() == null) {
+            return;
+        }
+        userDeviceRepository.findByUserAndActiveTrue(log.getRecipient()).stream()
+                .filter(device -> log.getDestination().equals(device.getPushToken()))
+                .findFirst()
+                .ifPresent(device -> {
+                    device.setLastSeenAt(LocalDateTime.now());
+                    userDeviceRepository.save(device);
+                });
     }
 }

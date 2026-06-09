@@ -12,9 +12,11 @@ A Spring Boot MVP for receiving monitoring alerts and escalating them until some
 - Escalation policies by service name
 - Scheduled escalation checks
 - Push-first notification dispatcher with pluggable providers
+- Notification delivery event timeline for queued, sent, received, seen, and failed transitions
 - User device registration for browser/mobile push tokens
-- H2 in-memory database for local development
-- PostgreSQL profile placeholder for the next phase
+- PostgreSQL as the default database
+- Flyway migrations for schema management
+- H2 in-memory database profile for quick local experiments
 
 ## Run
 
@@ -75,6 +77,14 @@ Use the old in-memory H2 profile only for quick experiments:
 ```powershell
 mvn spring-boot:run -Dspring-boot.run.profiles=h2
 ```
+
+Schema migrations are managed by Flyway under:
+
+```text
+src/main/resources/db/migration
+```
+
+Hibernate is configured to validate the schema instead of silently changing it.
 
 The app starts on:
 
@@ -219,6 +229,7 @@ POST /api/incidents/{incidentId}/acknowledge
 POST /api/incidents/{incidentId}/resolve
 
 GET  /api/notifications
+GET  /api/notifications/{notificationId}/events
 POST /api/notifications/{notificationId}/received
 POST /api/notifications/{notificationId}/seen
 ```
@@ -293,3 +304,17 @@ POST /api/notifications/{notificationId}/seen
 ```
 
 when the user clicks the notification or opens the incident from it.
+
+Both tracking APIs can optionally include client context:
+
+```json
+{
+  "clientInfo": "Chrome on Windows"
+}
+```
+
+Delivery events can be viewed with:
+
+```text
+GET /api/notifications/{notificationId}/events
+```
