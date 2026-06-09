@@ -25,6 +25,9 @@ Implemented:
 - Role-based access
 - Swagger
 - PostgreSQL integration tests for role access
+- Standard JWT library
+- Refresh token rotation
+- Password change with refresh-token revocation
 
 ## 3. Roadmap Overview
 
@@ -140,11 +143,15 @@ Priority:
 High
 ```
 
+Already implemented:
+
+- Standard JJWT library for access tokens.
+- Refresh tokens with hashed database storage.
+- Refresh token rotation.
+- Password change with active refresh-token revocation.
+
 Enhancements:
 
-- Replace custom JWT implementation with standard JWT library.
-- Add refresh tokens.
-- Add password change.
 - Add password reset.
 - Add account lockout after failed login attempts.
 - Add rate limiting.
@@ -273,7 +280,8 @@ Next development roadmap:
 1. Notification retry/outbox.
 2. On-call schedule.
 3. Actuator and metrics.
-4. Docker deployment.
+4. Password reset, account lockout, and rate limiting.
+5. Docker deployment.
 
 ## 13. Success Metrics
 

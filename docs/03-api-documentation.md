@@ -31,7 +31,7 @@ Bearer <accessToken>
 
 Purpose:
 
-Authenticate an E-Pager user and return a bearer token.
+Authenticate an E-Pager user and return an access token plus refresh token.
 
 Request:
 
@@ -48,11 +48,67 @@ Response:
 {
   "tokenType": "Bearer",
   "accessToken": "jwt-token",
+  "accessTokenExpiresAt": "2026-06-09T18:30:00Z",
+  "refreshToken": "opaque-refresh-token",
+  "refreshTokenExpiresAt": "2026-06-16T10:30:00",
   "userId": 4,
   "name": "E-Pager Admin",
   "email": "admin@epager.local",
   "role": "ADMIN"
 }
+```
+
+### POST `/api/auth/refresh`
+
+Purpose:
+
+Exchange a valid refresh token for a new access token and a new refresh token. The old refresh token is revoked during rotation.
+
+Request:
+
+```json
+{
+  "refreshToken": "opaque-refresh-token"
+}
+```
+
+Response:
+
+Same shape as login response.
+
+Status:
+
+```text
+200 OK
+401 Unauthorized if refresh token is invalid, expired, or already used
+```
+
+### POST `/api/auth/change-password`
+
+Purpose:
+
+Allow an authenticated user to change their own password. Existing active refresh tokens for that user are revoked.
+
+Headers:
+
+```text
+Authorization: Bearer <accessToken>
+```
+
+Request:
+
+```json
+{
+  "currentPassword": "old-password",
+  "newPassword": "new-secure-password"
+}
+```
+
+Status:
+
+```text
+200 OK
+403 Forbidden if current password is incorrect
 ```
 
 ## 3. Alert Ingestion API

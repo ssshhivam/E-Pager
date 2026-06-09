@@ -67,12 +67,13 @@ Implemented:
 - Webhook audit logs.
 - Dynatrace gateway bearer token.
 - Firebase credentials externalized through file path.
+- Standard JJWT library for access-token signing and validation.
+- Refresh token rotation with hashed token storage.
+- Authenticated password change with refresh-token revocation.
 
 Gaps:
 
-- JWT implementation is custom.
-- No refresh tokens.
-- No password reset/change flow.
+- No password reset flow.
 - Seeded passwords must be changed before production.
 - No rate limiting.
 - No account lockout.
@@ -80,8 +81,7 @@ Gaps:
 
 Recommendation:
 
-- Replace custom JWT code with a standard JWT library.
-- Add password management.
+- Add password reset and admin password recovery.
 - Add rate limiting for login and webhook endpoints.
 - Add secret rotation for webhook sources.
 - Move secrets to vault or environment manager.
@@ -202,11 +202,11 @@ Implemented:
 - Provider abstraction for notifications.
 - Flyway-controlled schema.
 - README and docs folder.
+- Standard JWT library instead of handwritten JWT parsing.
 
 Gaps:
 
 - More service-level unit tests needed.
-- Some security logic should move to standard libraries.
 
 Recommendation:
 
@@ -357,7 +357,7 @@ Recommendation:
 1. Add webhook/HMAC integration tests.
 2. Add Actuator and metrics.
 3. Add notification retry/outbox.
-4. Add standard JWT library.
+4. Add password reset and account lockout.
 5. Add Docker deployment.
 6. Add admin audit log.
 7. Add real client for push token registration.

@@ -110,6 +110,14 @@ $env:EPAGER_GATEWAY_EPAGER_ALERT_URL="http://localhost:8080/api/alerts/dynatrace
 $env:EPAGER_GATEWAY_EPAGER_HMAC_SECRET="demo-webhook-token"
 ```
 
+### Authentication
+
+```powershell
+$env:EPAGER_JWT_SECRET="replace-with-long-random-production-secret"
+$env:EPAGER_JWT_TTL_SECONDS="28800"
+$env:EPAGER_REFRESH_TOKEN_TTL_SECONDS="604800"
+```
+
 ### Firebase
 
 ```powershell
@@ -249,6 +257,7 @@ Environment should provide:
 
 - database credentials
 - JWT secret
+- access-token and refresh-token TTLs
 - gateway token
 - webhook HMAC secrets
 - Firebase service account path

@@ -181,6 +181,8 @@ com.example.epager.webhook
 Security mechanisms:
 
 - JWT login for UI/API users.
+- Refresh token rotation for longer sessions.
+- Password change revokes active refresh tokens.
 - Role-based endpoint access.
 - HMAC webhook validation.
 - Webhook timestamp validation.
@@ -298,6 +300,7 @@ Important tables:
 - `notification_delivery_events`
 - `webhook_source`
 - `webhook_audit_log`
+- `refresh_tokens`
 
 ## 8. Technology Stack
 
@@ -306,6 +309,7 @@ Important tables:
 - Spring Web
 - Spring Data JPA
 - Spring Security
+- JJWT
 - PostgreSQL
 - Flyway
 - Springdoc OpenAPI / Swagger UI
@@ -360,7 +364,7 @@ Benefit:
 - No frontend UI.
 - No native mobile app.
 - No full on-call rotation calendar.
-- JWT is custom-built for current learning scope, not yet using a standard JWT library.
+- Password reset, account lockout, and login rate limiting are not implemented yet.
 - Firebase provider is implemented, but real push requires a Firebase project and real client registration tokens.
 - Gateway is currently inside the E-Pager app, not a separate deployed service.
 

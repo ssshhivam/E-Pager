@@ -1,127 +1,73 @@
 package com.example.epager.security;
 
 import com.example.epager.user.AppRole;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.Base64;
+import java.util.Date;
 import java.util.Optional;
 
 @Service
 public class JwtTokenService {
 
-    private static final String HMAC_ALGORITHM = "HmacSHA256";
-    private static final Base64.Encoder URL_ENCODER = Base64.getUrlEncoder().withoutPadding();
-    private static final Base64.Decoder URL_DECODER = Base64.getUrlDecoder();
-
-    private final String secret;
+    private final SecretKey signingKey;
     private final long ttlSeconds;
 
     public JwtTokenService(
             @Value("${epager.security.jwt-secret:change-this-local-dev-secret}") String secret,
             @Value("${epager.security.jwt-ttl-seconds:28800}") long ttlSeconds
     ) {
-        this.secret = secret;
+        this.signingKey = Keys.hmacShaKeyFor(sha256(secret));
         this.ttlSeconds = ttlSeconds;
     }
 
-    public String createToken(Long userId, String email, AppRole role) {
-        long expiresAt = Instant.now().plusSeconds(ttlSeconds).getEpochSecond();
-        String header = encode("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
-        String payload = encode("{\"sub\":\"" + userId + "\",\"email\":\"" + escape(email)
-                + "\",\"role\":\"" + role.name() + "\",\"exp\":" + expiresAt + "}");
-        String signingInput = header + "." + payload;
-        return signingInput + "." + sign(signingInput);
+    public TokenPair createAccessToken(Long userId, String email, AppRole role) {
+        Instant expiresAt = Instant.now().plusSeconds(ttlSeconds);
+        String token = Jwts.builder()
+                .subject(String.valueOf(userId))
+                .claim("email", email)
+                .claim("role", role.name())
+                .issuedAt(Date.from(Instant.now()))
+                .expiration(Date.from(expiresAt))
+                .signWith(signingKey, Jwts.SIG.HS256)
+                .compact();
+        return new TokenPair(token, expiresAt);
     }
 
     public Optional<TokenClaims> validate(String token) {
-        String[] parts = token == null ? new String[0] : token.split("\\.");
-        if (parts.length != 3) {
-            return Optional.empty();
-        }
-
-        String signingInput = parts[0] + "." + parts[1];
-        if (!MessageDigest.isEqual(sign(signingInput).getBytes(StandardCharsets.UTF_8), parts[2].getBytes(StandardCharsets.UTF_8))) {
-            return Optional.empty();
-        }
-
-        String payload = new String(URL_DECODER.decode(parts[1]), StandardCharsets.UTF_8);
-        Long userId = longClaim(payload, "sub").orElse(null);
-        String email = stringClaim(payload, "email").orElse(null);
-        AppRole role = stringClaim(payload, "role").map(AppRole::valueOf).orElse(null);
-        long exp = longClaim(payload, "exp").orElse(0L);
-
-        if (userId == null || email == null || role == null || Instant.now().getEpochSecond() > exp) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new TokenClaims(userId, email, role));
-    }
-
-    private String encode(String value) {
-        return URL_ENCODER.encodeToString(value.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private String sign(String signingInput) {
         try {
-            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
-            return URL_ENCODER.encodeToString(mac.doFinal(signingInput.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException | InvalidKeyException exception) {
-            throw new IllegalStateException("Unable to sign JWT", exception);
-        }
-    }
+            var claims = Jwts.parser()
+                    .verifyWith(signingKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
 
-    private Optional<String> stringClaim(String json, String claimName) {
-        String marker = "\"" + claimName + "\":\"";
-        int start = json.indexOf(marker);
-        if (start < 0) {
+            Long userId = Long.valueOf(claims.getSubject());
+            String email = claims.get("email", String.class);
+            AppRole role = AppRole.valueOf(claims.get("role", String.class));
+            return Optional.of(new TokenClaims(userId, email, role));
+        } catch (IllegalArgumentException | JwtException exception) {
             return Optional.empty();
         }
-        start += marker.length();
-        int end = json.indexOf("\"", start);
-        return end < 0 ? Optional.empty() : Optional.of(json.substring(start, end));
     }
 
-    private Optional<Long> longClaim(String json, String claimName) {
-        String quotedMarker = "\"" + claimName + "\":\"";
-        int quotedStart = json.indexOf(quotedMarker);
-        if (quotedStart >= 0) {
-            int start = quotedStart + quotedMarker.length();
-            int end = json.indexOf("\"", start);
-            return parseLong(end < 0 ? "" : json.substring(start, end));
-        }
-
-        String marker = "\"" + claimName + "\":";
-        int start = json.indexOf(marker);
-        if (start < 0) {
-            return Optional.empty();
-        }
-        start += marker.length();
-        int end = start;
-        while (end < json.length() && Character.isDigit(json.charAt(end))) {
-            end++;
-        }
-        return parseLong(json.substring(start, end));
-    }
-
-    private Optional<Long> parseLong(String value) {
+    private byte[] sha256(String secret) {
         try {
-            return Optional.of(Long.parseLong(value));
-        } catch (NumberFormatException exception) {
-            return Optional.empty();
+            return MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
         }
     }
 
-    private String escape(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    public record TokenPair(String token, Instant expiresAt) {
     }
 
     public record TokenClaims(Long userId, String email, AppRole role) {

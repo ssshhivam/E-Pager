@@ -1,6 +1,7 @@
 package com.example.epager;
 
 import com.example.epager.gateway.GatewayAuthenticationException;
+import com.example.epager.security.InvalidRefreshTokenException;
 import com.example.epager.webhook.WebhookAuthenticationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.EntityNotFoundException;
@@ -29,6 +30,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(GatewayAuthenticationException.class)
     public ResponseEntity<Map<String, Object>> handleGatewayAuthentication(GatewayAuthenticationException exception) {
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidRefreshToken(InvalidRefreshTokenException exception) {
         return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
     }
 

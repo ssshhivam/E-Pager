@@ -61,6 +61,28 @@ Important methods:
 
 - `findByEmailIgnoreCase`
 
+Refresh token entity:
+
+```text
+RefreshToken
+```
+
+Fields:
+
+- `id`
+- `user`
+- `tokenHash`
+- `expiresAt`
+- `createdAt`
+- `revokedAt`
+
+Design:
+
+- The raw refresh token is returned only once to the client.
+- Only a SHA-256 hash of the refresh token is stored.
+- Refresh tokens are rotated on every refresh request.
+- Password change revokes all active refresh tokens for that user.
+
 ### 3.2 Project Domain
 
 Entities:
@@ -310,7 +332,7 @@ Responsibilities:
 
 | Controller | Base Path | Responsibility |
 |---|---|---|
-| `AuthController` | `/api/auth` | Login and JWT generation |
+| `AuthController` | `/api/auth` | Login, refresh token rotation, password change, JWT generation |
 | `AlertController` | `/api/alerts` | HMAC-secured alert ingestion |
 | `DynatraceWebhookGatewayController` | `/gateway/webhooks` | Dynatrace gateway input |
 | `IncidentController` | `/api/incidents` | Incident list, detail, acknowledge, resolve |
@@ -335,11 +357,23 @@ Response includes:
 ```text
 tokenType
 accessToken
+accessTokenExpiresAt
+refreshToken
+refreshTokenExpiresAt
 userId
 name
 email
 role
 ```
+
+Implementation:
+
+- Access tokens are signed and validated using the standard JJWT library.
+- Access token claims include user ID, email, and role.
+- Refresh tokens are opaque random values, not JWTs.
+- E-Pager stores only refresh token hashes in PostgreSQL.
+- `POST /api/auth/refresh` revokes the old refresh token and issues a new token pair.
+- `POST /api/auth/change-password` validates the current password, updates the password hash, and revokes active refresh tokens.
 
 Filter:
 
@@ -358,7 +392,8 @@ AppUserDetailsService
 
 | Path | Access |
 |---|---|
-| `/api/auth/**` | Public |
+| `/api/auth/login`, `/api/auth/refresh` | Public |
+| `/api/auth/change-password` | Authenticated |
 | `/api/alerts/**` | Public at Spring Security layer, protected by HMAC |
 | `/gateway/webhooks/**` | Public at Spring Security layer, protected by gateway token |
 | `/swagger-ui/**`, `/v3/api-docs/**` | Public |
@@ -379,6 +414,8 @@ Flyway migrations:
 | `V2__hmac_audit_and_delivery_events.sql` | Webhook audit and delivery events |
 | `V3__user_roles_and_passwords.sql` | User security columns |
 | `V4__reset_seed_user_passwords.sql` | Seed user password repair |
+| `V5__refresh_tokens.sql` | Refresh token storage |
+| `V6__refresh_token_user_not_null.sql` | Refresh token user constraint |
 
 Important relationships:
 
@@ -392,6 +429,7 @@ Important relationships:
 - `support_groups.project_id -> projects.id`
 - `support_group_members.support_group_id -> support_groups.id`
 - `support_group_members.user_id -> app_users.id`
+- `refresh_tokens.user_id -> app_users.id`
 
 ## 7. Important Flows
 
@@ -470,6 +508,7 @@ JWT:
 ```text
 epager.security.jwt-secret
 epager.security.jwt-ttl-seconds
+epager.security.refresh-token-ttl-seconds
 ```
 
 Scheduler:
@@ -493,6 +532,8 @@ Covers:
 - Engineer assigned incident access.
 - Protected endpoint blocking.
 - Gateway missing-token rejection.
+- Refresh token rotation and old-token rejection.
+- Password change revokes active refresh tokens.
 
 Recommended next tests:
 

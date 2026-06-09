@@ -13,7 +13,7 @@ A Spring Boot MVP for receiving monitoring alerts and escalating them until some
 - Scheduled escalation checks
 - Push-first notification dispatcher with pluggable providers
 - Notification delivery event timeline for queued, sent, received, seen, and failed transitions
-- JWT login and role-based API access for admin, manager, and engineer users
+- JJWT-based access tokens, refresh-token rotation, password change, and role-based API access
 - User device registration for browser/mobile push tokens
 - PostgreSQL as the default database
 - Flyway migrations for schema management
@@ -165,7 +165,7 @@ manish.manager@example.com  MANAGER
 
 ## Security and roles
 
-Login returns a bearer token:
+Login returns an access token and refresh token:
 
 ```text
 POST /api/auth/login
@@ -183,6 +183,20 @@ Use the returned token in Swagger's Authorize button or in API headers:
 ```text
 Authorization: Bearer <accessToken>
 ```
+
+Refresh an expired or near-expired access token:
+
+```text
+POST /api/auth/refresh
+```
+
+Change the current user's password:
+
+```text
+POST /api/auth/change-password
+```
+
+Password change revokes active refresh tokens for that user.
 
 Role permissions:
 
@@ -324,6 +338,9 @@ The rest of the system still receives only `UnifiedAlert`, so escalation policie
 ```text
 POST /api/alerts/grafana
 POST /api/alerts/dynatrace
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/change-password
 
 Headers required for alert webhooks:
 X-EPAGER-TIMESTAMP: current UTC timestamp, for example 2026-06-09T10:30:00Z

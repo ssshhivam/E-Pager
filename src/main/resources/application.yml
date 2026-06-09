@@ -24,6 +24,10 @@ server:
 epager:
   scheduler:
     escalation-check-rate-ms: 60000
+  security:
+    jwt-secret: ${EPAGER_JWT_SECRET:change-this-local-dev-secret}
+    jwt-ttl-seconds: ${EPAGER_JWT_TTL_SECONDS:28800}
+    refresh-token-ttl-seconds: ${EPAGER_REFRESH_TOKEN_TTL_SECONDS:604800}
   gateway:
     dynatrace-token: ${EPAGER_GATEWAY_DYNATRACE_TOKEN:change-this-dynatrace-gateway-token}
     epager-alert-url: ${EPAGER_GATEWAY_EPAGER_ALERT_URL:http://localhost:8080/api/alerts/dynatrace}

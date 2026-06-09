@@ -7,6 +7,7 @@ import com.example.epager.incident.IncidentStatus;
 import com.example.epager.notification.NotificationDeliveryEventRepository;
 import com.example.epager.notification.NotificationLogRepository;
 import com.example.epager.security.dto.LoginResponse;
+import com.example.epager.user.AppRole;
 import com.example.epager.user.AppUser;
 import com.example.epager.user.AppUserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,11 +17,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -58,11 +62,18 @@ class RoleBasedAccessIntegrationTest {
     @Autowired
     private NotificationLogRepository notificationLogRepository;
 
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private AppUser shivam;
     private AppUser ravi;
 
     @BeforeEach
     void resetIncidents() {
+        refreshTokenRepository.deleteAll();
         notificationDeliveryEventRepository.deleteAll();
         notificationLogRepository.deleteAll();
         escalationEventRepository.deleteAll();
@@ -153,23 +164,96 @@ class RoleBasedAccessIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    private String login(String email) throws Exception {
-        String response = mockMvc.perform(post("/api/auth/login")
+    @Test
+    void refreshTokenRotatesAndRejectsOldRefreshToken() throws Exception {
+        LoginResponse login = loginResponse("admin@epager.local", "password");
+
+        String refreshedResponse = mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "email", email,
-                                "password", "password"
+                                "refreshToken", login.refreshToken()
                         ))))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
-        return objectMapper.readValue(response, LoginResponse.class).accessToken();
+        LoginResponse refreshed = objectMapper.readValue(refreshedResponse, LoginResponse.class);
+        assertNotNull(refreshed.accessToken());
+        assertNotNull(refreshed.refreshToken());
+        assertNotEquals(login.refreshToken(), refreshed.refreshToken());
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "refreshToken", login.refreshToken()
+                        ))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void changePasswordRevokesRefreshTokensAndAllowsNewPassword() throws Exception {
+        AppUser user = createTestUser("oldPassword1");
+        LoginResponse login = loginResponse(user.getEmail(), "oldPassword1");
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .header("Authorization", bearer(login.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "currentPassword", "oldPassword1",
+                                "newPassword", "newPassword1"
+                        ))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "refreshToken", login.refreshToken()
+                        ))))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", user.getEmail(),
+                                "password", "oldPassword1"
+                        ))))
+                .andExpect(status().isForbidden());
+
+        loginResponse(user.getEmail(), "newPassword1");
+    }
+
+    private String login(String email) throws Exception {
+        return loginResponse(email, "password").accessToken();
+    }
+
+    private LoginResponse loginResponse(String email, String password) throws Exception {
+        String response = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", email,
+                                "password", password
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        return objectMapper.readValue(response, LoginResponse.class);
     }
 
     private String bearer(String token) {
         return "Bearer " + token;
+    }
+
+    private AppUser createTestUser(String password) {
+        AppUser user = new AppUser();
+        user.setName("Password Test User");
+        user.setEmail("password.test." + System.nanoTime() + "@example.com");
+        user.setPhoneNumber("+19999999999");
+        user.setRole(AppRole.ENGINEER);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        return appUserRepository.save(user);
     }
 
     private Incident incident(String externalAlertId, AppUser assignedUser) {

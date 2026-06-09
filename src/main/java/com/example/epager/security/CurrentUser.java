@@ -1,16 +1,18 @@
 package com.example.epager.security;
 
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 @Component
 public class CurrentUser {
 
     public AuthenticatedUser require() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication == null ? null : authentication.getPrincipal();
         if (principal instanceof AuthenticatedUser authenticatedUser) {
             return authenticatedUser;
         }
-        throw new IllegalStateException("Authenticated user is not available");
+        throw new AccessDeniedException("Authenticated user is not available");
     }
 }
