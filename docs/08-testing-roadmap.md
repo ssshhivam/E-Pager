@@ -86,13 +86,22 @@ Seeded users, project, policy, and webhook sources are visible
 
 ### Step 3: Send Alert
 
-For manual Swagger testing, the easiest source is:
+For manual Swagger testing, the easiest source is the built-in monitoring simulator:
+
+```text
+POST /api/testing/alerts/dynatrace/critical
+POST /api/testing/alerts/grafana/critical
+```
+
+This creates a realistic critical payload, processes it through the real adapter and incident pipeline, and starts notification/escalation.
+
+For gateway-specific testing, use:
 
 ```text
 POST /gateway/webhooks/dynatrace
 ```
 
-This endpoint needs only a gateway bearer token and JSON body. It then creates the HMAC request internally.
+The gateway endpoint needs only a gateway bearer token and JSON body. It then creates the HMAC request internally.
 
 For direct source testing:
 
@@ -297,6 +306,8 @@ Use this checklist before demo:
 [ ] GET /api/users works as admin
 [ ] Manager cannot GET /api/users
 [ ] Engineer sees only assigned incidents
+[ ] Simulated critical Dynatrace alert creates incident
+[ ] Simulated critical Grafana alert creates incident
 [ ] Dynatrace gateway accepts valid payload
 [ ] Incident is created
 [ ] Notification log is created

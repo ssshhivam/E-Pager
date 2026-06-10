@@ -315,6 +315,70 @@ Verify user IDs from `GET /api/users` before using this payload. Seed IDs can di
 
 ## 4. Alert Payloads
 
+### 4.0 Mock Monitoring Trigger APIs
+
+These endpoints are for manual demos and testing. You hit E-Pager directly, and E-Pager generates a realistic critical monitoring payload, processes it through the same adapter/incident/escalation/notification flow, and returns both the payload and created incident.
+
+Use admin or manager token.
+
+Dynatrace simulation:
+
+```text
+POST /api/testing/alerts/dynatrace/critical
+```
+
+Grafana simulation:
+
+```text
+POST /api/testing/alerts/grafana/critical
+```
+
+Body:
+
+```json
+{}
+```
+
+Expected:
+
+```text
+202 Accepted
+Response contains payload and incident
+Incident status is TRIGGERED
+Assigned user is Shivam Engineer
+Notification log is created
+```
+
+Example response shape:
+
+```json
+{
+  "source": "dynatrace",
+  "severity": "critical",
+  "simulatedExternalPostTarget": "/gateway/webhooks/dynatrace",
+  "payload": {
+    "problemId": "DT-SIM-123456789",
+    "problemTitle": "Payments service failure rate is critical",
+    "problemImpact": "SERVICE",
+    "severityLevel": "critical",
+    "state": "OPEN",
+    "impactedEntity": "payments",
+    "tags": {
+      "projectKey": "payments",
+      "groupKey": "primary-support",
+      "service": "payments",
+      "severity": "critical"
+    }
+  },
+  "incident": {
+    "id": 10,
+    "source": "DYNATRACE",
+    "status": "TRIGGERED",
+    "assignedUserName": "Shivam Engineer"
+  }
+}
+```
+
 ### 4.1 Direct Grafana Alert Body
 
 Endpoint:

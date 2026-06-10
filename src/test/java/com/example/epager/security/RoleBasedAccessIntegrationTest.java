@@ -171,6 +171,27 @@ class RoleBasedAccessIntegrationTest {
     }
 
     @Test
+    void simulatedDynatraceCriticalAlertCreatesIncidentAndNotification() throws Exception {
+        String adminToken = login("admin@epager.local");
+
+        String response = mockMvc.perform(post("/api/testing/alerts/dynatrace/critical")
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.source").value("dynatrace"))
+                .andExpect(jsonPath("$.severity").value("critical"))
+                .andExpect(jsonPath("$.payload.problemTitle").value("Payments service failure rate is critical"))
+                .andExpect(jsonPath("$.incident.status").value("TRIGGERED"))
+                .andExpect(jsonPath("$.incident.assignedUserName").value("Shivam Engineer"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        Long incidentId = objectMapper.readTree(response).path("incident").path("id").asLong();
+        assertTrue(notificationLogRepository.findAll().stream()
+                .anyMatch(log -> log.getIncident() != null && incidentId.equals(log.getIncident().getId())));
+    }
+
+    @Test
     void rejectedWebhookRequestCreatesAuditLog() throws Exception {
         mockMvc.perform(post("/api/alerts/grafana")
                         .contentType(MediaType.APPLICATION_JSON)

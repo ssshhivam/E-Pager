@@ -221,7 +221,59 @@ Status:
 401 if gateway token is missing or invalid
 ```
 
-## 5. User API
+## 5. Alert Simulation API
+
+Base path:
+
+```text
+/api/testing/alerts
+```
+
+Access:
+
+```text
+ADMIN, MANAGER
+```
+
+Purpose:
+
+Create a realistic critical monitoring payload inside E-Pager and process it through the normal alert pipeline. This is useful for demos and manual testing without configuring Dynatrace or Grafana first.
+
+### POST `/api/testing/alerts/dynatrace/critical`
+
+Creates a mock Dynatrace critical problem payload, processes it through `DynatraceAlertAdapter`, creates/updates an incident, starts escalation, and sends notification.
+
+### POST `/api/testing/alerts/grafana/critical`
+
+Creates a mock Grafana firing alert payload, processes it through `GrafanaAlertAdapter`, creates/updates an incident, starts escalation, and sends notification.
+
+Response:
+
+```json
+{
+  "source": "dynatrace",
+  "severity": "critical",
+  "simulatedExternalPostTarget": "/gateway/webhooks/dynatrace",
+  "payload": {
+    "problemId": "DT-SIM-123",
+    "problemTitle": "Payments service failure rate is critical"
+  },
+  "incident": {
+    "id": 10,
+    "status": "TRIGGERED",
+    "assignedUserName": "Shivam Engineer"
+  }
+}
+```
+
+Status:
+
+```text
+202 Accepted
+403 Forbidden if user is not admin or manager
+```
+
+## 6. User API
 
 Base path:
 
@@ -285,7 +337,7 @@ Request:
 }
 ```
 
-## 6. Project API
+## 7. Project API
 
 Base path:
 
@@ -350,7 +402,7 @@ Request:
 }
 ```
 
-## 7. Webhook Admin API
+## 8. Webhook Admin API
 
 Base path:
 
@@ -387,7 +439,7 @@ Request:
 
 Returns recent webhook audit logs.
 
-## 8. Escalation Policy API
+## 9. Escalation Policy API
 
 Base path:
 
@@ -440,7 +492,7 @@ Updates a policy.
 
 Returns recent escalation events.
 
-## 9. Incident API
+## 10. Incident API
 
 Base path:
 
@@ -488,7 +540,7 @@ Admin/manager request:
 
 Resolves an incident.
 
-## 10. Notification API
+## 11. Notification API
 
 Base path:
 
@@ -534,7 +586,7 @@ Request:
 
 Returns notification delivery timeline.
 
-## 11. Common Error Response
+## 12. Common Error Response
 
 Example:
 
@@ -547,7 +599,7 @@ Example:
 }
 ```
 
-## 12. Seeded Credentials
+## 13. Seeded Credentials
 
 ```text
 admin@epager.local          password  ADMIN
