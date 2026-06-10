@@ -13,6 +13,7 @@ Documents:
 7. [Future Enhancements Proposal](07-future-enhancements-proposal.md)
 8. [Testing Roadmap](08-testing-roadmap.md)
 9. [Testing Payloads](09-testing-payloads.md)
+10. [API Use-Case Guide](10-api-use-case-guide.md)
 
 ## Presentation Deck
 
