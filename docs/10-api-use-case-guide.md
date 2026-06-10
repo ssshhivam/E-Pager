@@ -1392,7 +1392,135 @@ Positive scenario:
 Timeline events returned.
 ```
 
-## 12. Recommended Swagger Demo Sequence
+## 12. Dashboard API
+
+The dashboard API gives one consolidated view for operations.
+
+### 12.1 Get Dashboard
+
+Endpoint:
+
+```text
+GET /api/dashboard
+```
+
+Access:
+
+```text
+ADMIN, MANAGER, ENGINEER
+```
+
+What it does:
+
+- Returns incident totals.
+- Returns notification delivery totals.
+- Returns webhook accepted/rejected counts for the last 24 hours.
+- Returns latest 10 incidents.
+- Returns latest 10 notifications.
+
+Role behavior:
+
+```text
+ADMIN and MANAGER
+  See global incident and notification dashboard data.
+
+ENGINEER
+  Sees only incidents assigned to that engineer.
+  Sees only notifications sent to that engineer.
+```
+
+Expected response:
+
+```json
+{
+  "generatedAt": "2026-06-10T13:45:00",
+  "incidents": {
+    "total": 12,
+    "triggered": 4,
+    "acknowledged": 6,
+    "resolved": 2,
+    "scheduledForEscalation": 4,
+    "byStatus": [
+      {
+        "status": "TRIGGERED",
+        "count": 4
+      },
+      {
+        "status": "ACKNOWLEDGED",
+        "count": 6
+      },
+      {
+        "status": "RESOLVED",
+        "count": 2
+      }
+    ]
+  },
+  "notifications": {
+    "total": 15,
+    "queued": 0,
+    "sent": 7,
+    "received": 3,
+    "seen": 4,
+    "failed": 1,
+    "byStatus": [
+      {
+        "status": "SENT",
+        "count": 7
+      }
+    ]
+  },
+  "webhooks": {
+    "last24HoursTotal": 10,
+    "last24HoursAccepted": 8,
+    "last24HoursRejected": 2
+  },
+  "recentIncidents": [
+    {
+      "id": 11,
+      "source": "DYNATRACE",
+      "severity": "critical",
+      "status": "TRIGGERED",
+      "assignedUserName": "Shivam Engineer",
+      "nextEscalationAt": "2026-06-10T13:50:00"
+    }
+  ],
+  "recentNotifications": [
+    {
+      "id": 20,
+      "incidentId": 11,
+      "recipientName": "Shivam Engineer",
+      "status": "SENT",
+      "deepLink": "/incidents/11?notificationId=20"
+    }
+  ]
+}
+```
+
+Positive scenario:
+
+```text
+200 OK
+Dashboard data is returned for the current user's role.
+```
+
+Negative scenarios:
+
+```text
+403 Forbidden if token is missing or invalid.
+ENGINEER will not see incidents or notifications belonging to other users.
+```
+
+Recommended Swagger check:
+
+```text
+1. POST /api/testing/alerts/dynatrace/critical
+2. GET /api/dashboard
+3. Confirm incidents.triggered increased.
+4. Confirm recentIncidents[0] is the latest incident.
+5. Confirm recentNotifications[0] has status SENT.
+```
+
+## 13. Recommended Swagger Demo Sequence
 
 Use this for a clean team demo:
 
@@ -1404,17 +1532,18 @@ Use this for a clean team demo:
 5. GET /api/escalation-policies
 6. POST /api/testing/alerts/dynatrace/critical
 7. Copy incident.id from response
-8. GET /api/incidents
-9. GET /api/notifications
-10. Copy notification.id
-11. POST /api/notifications/{notificationId}/received
-12. POST /api/notifications/{notificationId}/seen
-13. GET /api/notifications/{notificationId}/events
-14. POST /api/incidents/{incidentId}/acknowledge
-15. POST /api/incidents/{incidentId}/resolve
+8. GET /api/dashboard
+9. GET /api/incidents
+10. GET /api/notifications
+11. Copy notification.id
+12. POST /api/notifications/{notificationId}/received
+13. POST /api/notifications/{notificationId}/seen
+14. GET /api/notifications/{notificationId}/events
+15. POST /api/incidents/{incidentId}/acknowledge
+16. POST /api/incidents/{incidentId}/resolve
 ```
 
-## 13. Recommended New Escalation Policy Demo
+## 14. Recommended New Escalation Policy Demo
 
 Goal:
 
@@ -1467,7 +1596,7 @@ Matching Grafana alert labels:
 }
 ```
 
-## 14. Role Summary
+## 15. Role Summary
 
 ```text
 ADMIN
@@ -1485,7 +1614,7 @@ ENGINEER
   Cannot manage configuration.
 ```
 
-## 15. Common Status Codes
+## 16. Common Status Codes
 
 ```text
 200 OK

@@ -61,7 +61,7 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public List<NotificationLog> findAll() {
-        return notificationLogRepository.findAll();
+        return notificationLogRepository.findAllByOrderByCreatedAtDescIdDesc();
     }
 
     @Transactional

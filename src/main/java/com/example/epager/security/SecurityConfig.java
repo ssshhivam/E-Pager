@@ -37,6 +37,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/api/users/**", "/api/projects/**", "/api/webhooks/**").hasRole("ADMIN")
                         .requestMatchers("/api/escalation-policies/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "MANAGER", "ENGINEER")
                         .requestMatchers("/api/incidents/**").hasAnyRole("ADMIN", "MANAGER", "ENGINEER")
                         .requestMatchers("/api/notifications/**").hasAnyRole("ADMIN", "MANAGER", "ENGINEER")
                         .anyRequest().authenticated()

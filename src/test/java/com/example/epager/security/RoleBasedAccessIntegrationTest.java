@@ -179,10 +179,33 @@ class RoleBasedAccessIntegrationTest {
     }
 
     @Test
+    void dashboardShowsSummaryAndRespectsEngineerVisibility() throws Exception {
+        Incident assignedToShivam = incidentRepository.save(incident("dashboard-shivam", shivam));
+        incidentRepository.save(incident("dashboard-ravi", ravi));
+
+        String adminToken = login("admin@epager.local");
+        String engineerToken = login("shivam.engineer@example.com");
+
+        mockMvc.perform(get("/api/dashboard").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.incidents.total").value(2))
+                .andExpect(jsonPath("$.incidents.triggered").value(2))
+                .andExpect(jsonPath("$.recentIncidents", hasSize(2)));
+
+        mockMvc.perform(get("/api/dashboard").header("Authorization", bearer(engineerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.incidents.total").value(1))
+                .andExpect(jsonPath("$.recentIncidents", hasSize(1)))
+                .andExpect(jsonPath("$.recentIncidents[0].id").value(assignedToShivam.getId()));
+    }
+
+    @Test
     void unauthenticatedUsersCannotAccessProtectedApis() throws Exception {
         mockMvc.perform(get("/api/users"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/incidents"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/dashboard"))
                 .andExpect(status().isForbidden());
     }
 
