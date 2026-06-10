@@ -47,15 +47,15 @@ public class IncidentService {
 
     @Transactional(readOnly = true)
     public List<Incident> findAll() {
-        return incidentRepository.findAll();
+        return incidentRepository.findAllByOrderByCreatedAtDescIdDesc();
     }
 
     @Transactional(readOnly = true)
     public List<Incident> findVisibleTo(AuthenticatedUser user) {
         if (user.role() == AppRole.ENGINEER) {
-            return incidentRepository.findByAssignedUserId(user.id());
+            return incidentRepository.findByAssignedUserIdOrderByCreatedAtDescIdDesc(user.id());
         }
-        return incidentRepository.findAll();
+        return incidentRepository.findAllByOrderByCreatedAtDescIdDesc();
     }
 
     @Transactional(readOnly = true)

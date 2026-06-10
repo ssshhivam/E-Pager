@@ -19,5 +19,7 @@ public interface IncidentRepository extends JpaRepository<Incident, Long> {
             LocalDateTime now
     );
 
-    List<Incident> findByAssignedUserId(Long userId);
+    List<Incident> findAllByOrderByCreatedAtDescIdDesc();
+
+    List<Incident> findByAssignedUserIdOrderByCreatedAtDescIdDesc(Long userId);
 }

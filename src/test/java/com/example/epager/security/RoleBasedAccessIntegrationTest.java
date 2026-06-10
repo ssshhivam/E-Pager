@@ -155,6 +155,30 @@ class RoleBasedAccessIntegrationTest {
     }
 
     @Test
+    void incidentListReturnsNewestFirst() throws Exception {
+        Incident olderIncident = incident("older-incident", shivam);
+        olderIncident.setCreatedAt(LocalDateTime.now().minusMinutes(10));
+        olderIncident = incidentRepository.save(olderIncident);
+
+        Incident newerIncident = incident("newer-incident", shivam);
+        newerIncident.setCreatedAt(LocalDateTime.now());
+        newerIncident = incidentRepository.save(newerIncident);
+
+        String adminToken = login("admin@epager.local");
+        String engineerToken = login("shivam.engineer@example.com");
+
+        mockMvc.perform(get("/api/incidents").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(newerIncident.getId()))
+                .andExpect(jsonPath("$[1].id").value(olderIncident.getId()));
+
+        mockMvc.perform(get("/api/incidents").header("Authorization", bearer(engineerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(newerIncident.getId()))
+                .andExpect(jsonPath("$[1].id").value(olderIncident.getId()));
+    }
+
+    @Test
     void unauthenticatedUsersCannotAccessProtectedApis() throws Exception {
         mockMvc.perform(get("/api/users"))
                 .andExpect(status().isForbidden());
