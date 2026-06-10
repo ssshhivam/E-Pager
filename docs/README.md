@@ -14,6 +14,10 @@ Documents:
 8. [Testing Roadmap](08-testing-roadmap.md)
 9. [Testing Payloads](09-testing-payloads.md)
 
+## Presentation Deck
+
+- [E-Pager Technical Deep Dive](E-Pager-Technical-Deep-Dive.pptx)
+
 Current implementation baseline:
 
 - Java 17
