@@ -35,7 +35,7 @@ public class WebhookSecurityService {
         this.webhookAuditLogRepository = webhookAuditLogRepository;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = WebhookAuthenticationException.class)
     public void validate(
             String sourceName,
             String suppliedSignature,

@@ -11,6 +11,8 @@ Documents:
 5. [User and Admin Guide](05-user-admin-guide.md)
 6. [NFR Compliance Report](06-nfr-compliance-report.md)
 7. [Future Enhancements Proposal](07-future-enhancements-proposal.md)
+8. [Testing Roadmap](08-testing-roadmap.md)
+9. [Testing Payloads](09-testing-payloads.md)
 
 Current implementation baseline:
 

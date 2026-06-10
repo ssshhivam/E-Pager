@@ -10,6 +10,7 @@ import com.example.epager.security.dto.LoginResponse;
 import com.example.epager.user.AppRole;
 import com.example.epager.user.AppUser;
 import com.example.epager.user.AppUserRepository;
+import com.example.epager.webhook.WebhookAuditLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -63,6 +65,9 @@ class RoleBasedAccessIntegrationTest {
     private NotificationLogRepository notificationLogRepository;
 
     @Autowired
+    private WebhookAuditLogRepository webhookAuditLogRepository;
+
+    @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
@@ -78,6 +83,7 @@ class RoleBasedAccessIntegrationTest {
         notificationLogRepository.deleteAll();
         escalationEventRepository.deleteAll();
         incidentRepository.deleteAll();
+        webhookAuditLogRepository.deleteAll();
 
         shivam = appUserRepository.findByEmailIgnoreCase("shivam.engineer@example.com")
                 .orElseThrow();
@@ -162,6 +168,19 @@ class RoleBasedAccessIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void rejectedWebhookRequestCreatesAuditLog() throws Exception {
+        mockMvc.perform(post("/api/alerts/grafana")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+
+        assertTrue(webhookAuditLogRepository.findAll().stream()
+                .anyMatch(log -> !log.isAccepted()
+                        && "grafana".equals(log.getSourceName())
+                        && "Missing HMAC timestamp".equals(log.getRejectionReason())));
     }
 
     @Test
