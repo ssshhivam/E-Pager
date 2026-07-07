@@ -26,15 +26,18 @@ public class EscalationPolicyController {
     private final EscalationPolicyRepository escalationPolicyRepository;
     private final EscalationEventRepository escalationEventRepository;
     private final AppUserRepository appUserRepository;
+    private final EscalationLevelUserRepository escalationLevelUserRepository;
 
     public EscalationPolicyController(
             EscalationPolicyRepository escalationPolicyRepository,
             EscalationEventRepository escalationEventRepository,
-            AppUserRepository appUserRepository
+            AppUserRepository appUserRepository,
+            EscalationLevelUserRepository escalationLevelUserRepository
     ) {
         this.escalationPolicyRepository = escalationPolicyRepository;
         this.escalationEventRepository = escalationEventRepository;
         this.appUserRepository = appUserRepository;
+        this.escalationLevelUserRepository = escalationLevelUserRepository;
     }
 
     @GetMapping
@@ -81,14 +84,21 @@ public class EscalationPolicyController {
         return policy;
     }
 
-    private EscalationLevel toLevel(EscalationLevelRequest request) {
-        AppUser user = appUserRepository.findById(request.userId())
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + request.userId()));
+	private EscalationLevel toLevel(EscalationLevelRequest request) {
+		List<AppUser> users = appUserRepository.findAllById(request.userIdList());
 
-        EscalationLevel level = new EscalationLevel();
-        level.setLevelNumber(request.levelNumber());
-        level.setUser(user);
-        level.setWaitMinutes(request.waitMinutes());
-        return level;
-    }
+		EscalationLevel level = new EscalationLevel();
+		level.setLevelNumber(request.levelNumber());
+		for (AppUser user : users) {
+			EscalationLevelUser mapping = new EscalationLevelUser();
+			mapping.setEscalationLevel(level);
+			mapping.setUser(user);
+			mapping.setActive(true);
+
+			escalationLevelUserRepository.save(mapping);
+		}
+//        level.setUser(user);
+		level.setWaitMinutes(request.waitMinutes());
+		return level;
+	}
 }

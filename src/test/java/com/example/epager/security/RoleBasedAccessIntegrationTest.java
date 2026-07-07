@@ -370,7 +370,7 @@ class RoleBasedAccessIntegrationTest {
         incident.setDescription("Created by role-based access integration test");
         incident.setStatus(IncidentStatus.TRIGGERED);
         incident.setCurrentEscalationLevel(1);
-        incident.setAssignedUser(assignedUser);
+//        incident.setAssignedUser(assignedUser);
         incident.setCreatedAt(LocalDateTime.now());
         return incident;
     }

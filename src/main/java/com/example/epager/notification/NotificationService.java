@@ -34,29 +34,34 @@ public class NotificationService {
     }
 
     @Transactional
-    public void notifyUser(Incident incident, AppUser recipient) {
-        List<UserDevice> devices = userDeviceRepository.findByUserAndActiveTrue(recipient);
-        if (devices.isEmpty()) {
-            NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH, recipient.getEmail());
-            markProviderResult(log, NotificationResult.failed("No active push devices registered"));
-            return;
-        }
+    public void notifyUser(Incident incident, List<AppUser> userList) {
+		for (AppUser recipient : userList) {
+			List<UserDevice> devices = userDeviceRepository.findByUserAndActiveTrue(recipient);
+			if (devices.isEmpty()) {
+				NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH,
+						recipient.getEmail());
+				markProviderResult(log, NotificationResult.failed("No active push devices registered"));
+				return;
+			}
 
-        NotificationProvider provider = providers.get(NotificationChannel.PUSH);
-        if (provider == null) {
-            devices.forEach(device -> {
-                NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH, device.getPushToken());
-                markProviderResult(log, NotificationResult.failed("No PUSH notification provider configured"));
-            });
-            return;
-        }
+			NotificationProvider provider = providers.get(NotificationChannel.PUSH);
+			if (provider == null) {
+				devices.forEach(device -> {
+					NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH,
+							device.getPushToken());
+					markProviderResult(log, NotificationResult.failed("No PUSH notification provider configured"));
+				});
+				return;
+			}
 
-        devices.forEach(device -> {
-            NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH, device.getPushToken());
-            NotificationRequest request = pushRequest(log, incident, recipient, device);
-            NotificationResult result = provider.send(request);
-            markProviderResult(log, result);
-        });
+			devices.forEach(device -> {
+				NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH,
+						device.getPushToken());
+				NotificationRequest request = pushRequest(log, incident, recipient, device);
+				NotificationResult result = provider.send(request);
+				markProviderResult(log, result);
+			});
+		}
     }
 
     @Transactional(readOnly = true)

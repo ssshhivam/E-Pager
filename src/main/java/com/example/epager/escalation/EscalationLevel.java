@@ -1,6 +1,5 @@
 package com.example.epager.escalation;
 
-import com.example.epager.user.AppUser;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -26,9 +25,9 @@ public class EscalationLevel {
     @Min(1)
     private Integer levelNumber;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.EAGER)
-    private AppUser user;
+//    @NotNull
+//    @ManyToOne(fetch = FetchType.EAGER)
+//    private AppUser user;
 
     @NotNull
     @Min(1)
@@ -58,13 +57,13 @@ public class EscalationLevel {
         this.levelNumber = levelNumber;
     }
 
-    public AppUser getUser() {
-        return user;
-    }
-
-    public void setUser(AppUser user) {
-        this.user = user;
-    }
+//    public AppUser getUser() {
+//        return user;
+//    }
+//
+//    public void setUser(AppUser user) {
+//        this.user = user;
+//    }
 
     public Integer getWaitMinutes() {
         return waitMinutes;

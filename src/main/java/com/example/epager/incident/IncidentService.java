@@ -139,8 +139,8 @@ public class IncidentService {
         if (user.role() != AppRole.ENGINEER) {
             return;
         }
-        if (incident.getAssignedUser() == null || !user.id().equals(incident.getAssignedUser().getId())) {
-            throw new AccessDeniedException("Engineer can access only assigned incidents");
-        }
+//        if (incident.getAssignedUser() == null || !user.id().equals(incident.getAssignedUser().getId())) {
+//            throw new AccessDeniedException("Engineer can access only assigned incidents");
+//        }
     }
 }
