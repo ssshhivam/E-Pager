@@ -111,22 +111,17 @@ public class EscalationService {
 		notificationService.notifyUser(savedIncident, currentShiftUsers);
 	}
 
-    private List<AppUser> getCurrentShiftUsers(List<AppUser> escalationUsers) {
+	private List<AppUser> getCurrentShiftUsers(List<AppUser> escalationUsers) {
 
-        Shift currentShift = getCurrentShift();
+		Shift currentShift = getCurrentShift();
 
-        List<AppUser> shiftUsers = rosterRepository.findUsersByShift(
-                currentShift.getId(),
-                LocalDate.now());
+		List<AppUser> shiftUsers = rosterRepository.findUsersByShift(currentShift.getId());
 
-        Set<Long> shiftUserIds = shiftUsers.stream()
-                .map(AppUser::getId)
-                .collect(Collectors.toSet());
+		Set<Long> shiftUserIds = shiftUsers.stream().map(AppUser::getId).collect(Collectors.toSet());
 
-        return escalationUsers.stream()
-                .filter(user -> shiftUserIds.contains(user.getId()))
-                .collect(Collectors.toCollection(ArrayList::new));
-    }
+		return escalationUsers.stream().filter(user -> shiftUserIds.contains(user.getId()))
+				.collect(Collectors.toCollection(ArrayList::new));
+	}
     
     private Shift getCurrentShift() {
 

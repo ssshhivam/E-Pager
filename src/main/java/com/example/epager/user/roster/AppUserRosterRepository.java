@@ -32,10 +32,9 @@ public interface AppUserRosterRepository extends JpaRepository<AppUserRoster, Lo
 			select r.user
 			from AppUserRoster r
 			where r.shift.id = :shiftId
-			and r.rosterDate = :rosterDate
 			and r.active = true
 			""")
-	List<AppUser> findUsersByShift(@Param("shiftId") Long shiftId, @Param("rosterDate") LocalDate rosterDate);
+	List<AppUser> findUsersByShift(@Param("shiftId") Long shiftId);
 
 	@Query("""
 			select r

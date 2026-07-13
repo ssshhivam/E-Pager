@@ -40,7 +40,7 @@ public class RosterService {
 
 		Shift currentShift = getCurrentShift();
 
-		return rosterRepository.findUsersByShift(currentShift.getId(), LocalDate.now());
+		return rosterRepository.findUsersByShift(currentShift.getId());
 	}
 
 	public List<AppUser> getCurrentShiftUsers(List<AppUser> escalationUsers) {
