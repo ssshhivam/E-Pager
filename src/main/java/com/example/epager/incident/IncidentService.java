@@ -95,6 +95,7 @@ public class IncidentService {
         if(!incident.getStatus().equals(IncidentStatus.TRIGGERED)) {
         	return incident;
         }
+        incident.setAssignedUser(user.getUser());
         AppUser acknowledgingUser = appUserRepository.findById(user.id())
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + user.id()));
         incident.setStatus(IncidentStatus.ACKNOWLEDGED);
@@ -151,8 +152,8 @@ public class IncidentService {
         if (user.role() != AppRole.ENGINEER) {
             return;
         }
-//        if (incident.getAssignedUser() == null || !user.id().equals(incident.getAssignedUser().getId())) {
-//            throw new AccessDeniedException("Engineer can access only assigned incidents");
-//        }
+        if ((user.role() == AppRole.ENGINEER) && (incident.getAssignedUser() == null || !user.id().equals(incident.getAssignedUser().getId()))) {
+            throw new AccessDeniedException("Engineer can access only assigned incidents");
+        }
     }
 }

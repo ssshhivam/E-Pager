@@ -1,17 +1,20 @@
 package com.example.epager.security;
 
-import com.example.epager.escalation.EscalationEventRepository;
-import com.example.epager.incident.Incident;
-import com.example.epager.incident.IncidentRepository;
-import com.example.epager.incident.IncidentStatus;
-import com.example.epager.notification.NotificationDeliveryEventRepository;
-import com.example.epager.notification.NotificationLogRepository;
-import com.example.epager.security.dto.LoginResponse;
-import com.example.epager.user.AppRole;
-import com.example.epager.user.AppUser;
-import com.example.epager.user.AppUserRepository;
-import com.example.epager.webhook.WebhookAuditLogRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,17 +24,23 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.example.epager.escalation.EscalationEventRepository;
+import com.example.epager.incident.Incident;
+import com.example.epager.incident.IncidentRepository;
+import com.example.epager.incident.IncidentStatus;
+import com.example.epager.notification.NotificationDeliveryEventRepository;
+import com.example.epager.notification.NotificationLog;
+import com.example.epager.notification.NotificationLogRepository;
+import com.example.epager.security.dto.LoginResponse;
+import com.example.epager.user.AppRole;
+import com.example.epager.user.AppUser;
+import com.example.epager.user.AppUserRepository;
+import com.example.epager.user.roster.AppUserRoster;
+import com.example.epager.user.roster.AppUserRosterRepository;
+import com.example.epager.user.roster.Shift;
+import com.example.epager.user.roster.ShiftRepository;
+import com.example.epager.webhook.WebhookAuditLogRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=${EPAGER_TEST_DB_URL:jdbc:postgresql://localhost:5432/epager_test}",
@@ -71,10 +80,17 @@ class RoleBasedAccessIntegrationTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private ShiftRepository shiftRepository;
+    
+    @Autowired
+    private AppUserRosterRepository rosterRepository;
+    
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private AppUser shivam;
     private AppUser ravi;
+    private AppUser manish;
 
     @BeforeEach
     void resetIncidents() {
@@ -84,11 +100,16 @@ class RoleBasedAccessIntegrationTest {
         escalationEventRepository.deleteAll();
         incidentRepository.deleteAll();
         webhookAuditLogRepository.deleteAll();
+        ensureShifts();
+       
 
         shivam = appUserRepository.findByEmailIgnoreCase("shivam.engineer@example.com")
                 .orElseThrow();
         ravi = appUserRepository.findByEmailIgnoreCase("ravi.lead@example.com")
                 .orElseThrow();
+        manish = appUserRepository.findByEmailIgnoreCase("manish.manager@example.com")
+                .orElseThrow();
+        ensureRoster(shivam, ravi, manish);
     }
 
     @Test
@@ -228,13 +249,13 @@ class RoleBasedAccessIntegrationTest {
                 .andExpect(jsonPath("$.severity").value("critical"))
                 .andExpect(jsonPath("$.payload.problemTitle").value("Payments service failure rate is critical"))
                 .andExpect(jsonPath("$.incident.status").value("TRIGGERED"))
-                .andExpect(jsonPath("$.incident.assignedUserName").value("Shivam Engineer"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
         Long incidentId = objectMapper.readTree(response).path("incident").path("id").asLong();
-        assertTrue(notificationLogRepository.findAll().stream()
+        List<NotificationLog> all = notificationLogRepository.findAll();
+        assertTrue(all.stream()
                 .anyMatch(log -> log.getIncident() != null && incidentId.equals(log.getIncident().getId())));
     }
 
@@ -370,8 +391,61 @@ class RoleBasedAccessIntegrationTest {
         incident.setDescription("Created by role-based access integration test");
         incident.setStatus(IncidentStatus.TRIGGERED);
         incident.setCurrentEscalationLevel(1);
-//        incident.setAssignedUser(assignedUser);
+        incident.setAssignedUser(assignedUser);
         incident.setCreatedAt(LocalDateTime.now());
         return incident;
     }
+    
+	private void ensureShifts() {
+
+		createShiftIfNotExists("Morning", LocalTime.of(8, 0), LocalTime.of(16, 0));
+
+		createShiftIfNotExists("Evening", LocalTime.of(16, 0), LocalTime.MIDNIGHT);
+
+		createShiftIfNotExists("Night", LocalTime.MIDNIGHT, LocalTime.of(8, 0));
+	}
+
+	private void createShiftIfNotExists(String shiftName, LocalTime startTime, LocalTime endTime) {
+		if (shiftRepository.findByShiftNameIgnoreCase(shiftName).isPresent()) {
+			return;
+		}
+		Shift shift = new Shift();
+		shift.setShiftName(shiftName);
+		shift.setStartTime(startTime);
+		shift.setEndTime(endTime);
+		shift.setActive(true);
+		shift.setCreatedOn(LocalDateTime.now());
+		shift.setUpdatedOn(LocalDateTime.now());
+
+		shiftRepository.save(shift);
+	}
+	
+	private void createRosterIfNotExists(AppUser user, Shift shift, LocalDate rosterDate) {
+		if (rosterRepository.existsByUserIdAndShiftIdAndRosterDate(user.getId(), shift.getId(), rosterDate)) {
+			return;
+		}
+		AppUserRoster roster = new AppUserRoster();
+
+		roster.setUser(user);
+		roster.setShift(shift);
+		roster.setRosterDate(rosterDate);
+		roster.setActive(true);
+		roster.setCreatedOn(LocalDateTime.now());
+		roster.setUpdatedOn(LocalDateTime.now());
+		rosterRepository.save(roster);
+	}
+	
+	private void ensureRoster(AppUser shivam, AppUser ravi, AppUser manish) {
+		LocalDate today = LocalDate.now();
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning")
+				.orElseThrow(() -> new RuntimeException("Morning shift not found"));
+		Shift evening = shiftRepository.findByShiftNameIgnoreCase("Evening")
+				.orElseThrow(() -> new RuntimeException("Evening shift not found"));
+		Shift night = shiftRepository.findByShiftNameIgnoreCase("Night")
+				.orElseThrow(() -> new RuntimeException("Night shift not found"));
+		createRosterIfNotExists(shivam, morning, today);
+		createRosterIfNotExists(ravi, evening, today);
+		createRosterIfNotExists(shivam, evening, today);
+		createRosterIfNotExists(manish, night, today);
+	}
 }

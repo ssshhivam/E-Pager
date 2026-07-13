@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -101,13 +102,14 @@ public class EscalationService {
 
 	private void notifyLevel(Incident incident, EscalationLevel level) {
 		Integer fromLevel = incident.getCurrentEscalationLevel();
-		var fromUser = incident.getAssignedUser();
 		List<AppUser> currentShiftUsers = getCurrentShiftUsers(
 				escalationLevelUserRepository.findUsersByEscalationLevelId(level.getId()));
 		incident.setCurrentEscalationLevel(level.getLevelNumber());
 		incident.setNextEscalationAt(LocalDateTime.now().plusMinutes(level.getWaitMinutes()));
 		Incident savedIncident = incidentRepository.save(incident);
-		recordEvent(savedIncident, fromLevel, level, fromUser);// need changes here
+		for (AppUser appUser : currentShiftUsers) {
+			recordEvent(savedIncident, fromLevel, level, appUser);
+		}
 		notificationService.notifyUser(savedIncident, currentShiftUsers);
 	}
 
@@ -136,7 +138,8 @@ public class EscalationService {
         event.setIncident(incident);
         event.setFromLevel(fromLevel);
         event.setToLevel(level.getLevelNumber());
-        event.setToUser(appUser);
+        event.setFromUser(appUser);
+        event.setToUser(incident.getAssignedUser());
         event.setReason(fromLevel == null || fromLevel == 0 ? "INITIAL_ASSIGNMENT" : "NO_ACK_ESCALATION");
         event.setCreatedAt(LocalDateTime.now());
         escalationEventRepository.save(event);

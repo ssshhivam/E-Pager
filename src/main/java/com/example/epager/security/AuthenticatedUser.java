@@ -13,7 +13,11 @@ public class AuthenticatedUser implements UserDetails {
 
     private final AppUser user;
 
-    public AuthenticatedUser(AppUser user) {
+    public AppUser getUser() {
+		return user;
+	}
+
+	public AuthenticatedUser(AppUser user) {
         this.user = user;
     }
 
