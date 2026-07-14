@@ -74,6 +74,9 @@ public class IncidentService {
     @Transactional
     public Incident acknowledge(Long incidentId, Long userId) {
         Incident incident = findById(incidentId);
+        if(!incident.getStatus().equals(IncidentStatus.TRIGGERED)) {
+        	return incident;
+        }
         AppUser user = appUserRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
@@ -87,8 +90,12 @@ public class IncidentService {
     @Transactional
     public Incident acknowledge(Long incidentId, AuthenticatedUser user) {
         Incident incident = findById(incidentId);
+        // need check for already acknowledged incidents
         assertCanAccessIncident(incident, user);
-
+        if(!incident.getStatus().equals(IncidentStatus.TRIGGERED)) {
+        	return incident;
+        }
+        incident.setAssignedUser(user.getUser());
         AppUser acknowledgingUser = appUserRepository.findById(user.id())
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + user.id()));
         incident.setStatus(IncidentStatus.ACKNOWLEDGED);
@@ -101,6 +108,9 @@ public class IncidentService {
     @Transactional
     public Incident resolve(Long incidentId) {
         Incident incident = findById(incidentId);
+        if(!incident.getStatus().equals(IncidentStatus.ACKNOWLEDGED)) {
+        	return incident;
+        }
         incident.setStatus(IncidentStatus.RESOLVED);
         incident.setResolvedAt(LocalDateTime.now());
         incident.setNextEscalationAt(null);
@@ -110,6 +120,9 @@ public class IncidentService {
     @Transactional
     public Incident resolve(Long incidentId, AuthenticatedUser user) {
         Incident incident = findById(incidentId);
+        if(!incident.getStatus().equals(IncidentStatus.ACKNOWLEDGED)) {
+        	return incident;
+        }
         assertCanAccessIncident(incident, user);
         incident.setStatus(IncidentStatus.RESOLVED);
         incident.setResolvedAt(LocalDateTime.now());
@@ -139,7 +152,7 @@ public class IncidentService {
         if (user.role() != AppRole.ENGINEER) {
             return;
         }
-        if (incident.getAssignedUser() == null || !user.id().equals(incident.getAssignedUser().getId())) {
+        if ((user.role() == AppRole.ENGINEER) && (incident.getAssignedUser() == null || !user.id().equals(incident.getAssignedUser().getId()))) {
             throw new AccessDeniedException("Engineer can access only assigned incidents");
         }
     }

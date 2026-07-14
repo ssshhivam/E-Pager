@@ -1,6 +1,15 @@
 package com.example.epager;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
 import com.example.epager.escalation.EscalationLevel;
+import com.example.epager.escalation.EscalationLevelUser;
+import com.example.epager.escalation.EscalationLevelUserRepository;
 import com.example.epager.escalation.EscalationPolicy;
 import com.example.epager.escalation.EscalationPolicyRepository;
 import com.example.epager.notification.DevicePlatform;
@@ -16,11 +25,6 @@ import com.example.epager.user.AppRole;
 import com.example.epager.user.AppUser;
 import com.example.epager.user.AppUserRepository;
 import com.example.epager.webhook.WebhookSecurityService;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
 
 @Component
 public class SeedData implements CommandLineRunner {
@@ -33,6 +37,7 @@ public class SeedData implements CommandLineRunner {
     private final SupportGroupMemberRepository supportGroupMemberRepository;
     private final WebhookSecurityService webhookSecurityService;
     private final PasswordEncoder passwordEncoder;
+    private final EscalationLevelUserRepository escalationLevelUserRepository;
 
     public SeedData(
             AppUserRepository appUserRepository,
@@ -42,7 +47,8 @@ public class SeedData implements CommandLineRunner {
             SupportGroupRepository supportGroupRepository,
             SupportGroupMemberRepository supportGroupMemberRepository,
             WebhookSecurityService webhookSecurityService,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            EscalationLevelUserRepository escalationLevelUserRepository
     ) {
         this.appUserRepository = appUserRepository;
         this.escalationPolicyRepository = escalationPolicyRepository;
@@ -52,6 +58,7 @@ public class SeedData implements CommandLineRunner {
         this.supportGroupMemberRepository = supportGroupMemberRepository;
         this.webhookSecurityService = webhookSecurityService;
         this.passwordEncoder = passwordEncoder;
+        this.escalationLevelUserRepository = escalationLevelUserRepository;
     }
 
     @Override
@@ -61,20 +68,23 @@ public class SeedData implements CommandLineRunner {
 
         ensureUser("E-Pager Admin", "admin@epager.local", "+10000000000", AppRole.ADMIN);
         AppUser engineer = ensureUser("Shivam Engineer", "shivam.engineer@example.com", "+10000000001", AppRole.ENGINEER);
+        AppUser engineer2 = ensureUser("Raj Engineer", "raj.engineer@example.com", "+10000000004", AppRole.ENGINEER);
         AppUser lead = ensureUser("Ravi Lead", "ravi.lead@example.com", "+10000000002", AppRole.MANAGER);
         AppUser manager = ensureUser("Manish Manager", "manish.manager@example.com", "+10000000003", AppRole.MANAGER);
 
         ensureDevice(engineer, DevicePlatform.WEB, "demo-web-token-shivam", "Shivam browser");
+        ensureDevice(engineer2, DevicePlatform.WEB, "demo-web-token-raj", "Raj browser");
         ensureDevice(lead, DevicePlatform.ANDROID, "demo-android-token-ravi", "Ravi Android");
         ensureDevice(manager, DevicePlatform.IOS, "demo-ios-token-manish", "Manish iPhone");
 
         Project project = ensureProject("payments", "Payments Project", "Seed project for payment alerts");
         SupportGroup supportGroup = ensureGroup(project, "primary-support", "Primary Support");
         ensureMember(supportGroup, engineer);
+        ensureMember(supportGroup, engineer2);
         ensureMember(supportGroup, lead);
         ensureMember(supportGroup, manager);
 
-        ensureEscalationPolicy(engineer, lead, manager);
+        ensureEscalationPolicy(engineer, lead, manager, engineer2);
     }
 
     private void ensureExistingUsersHaveSecurityFields() {
@@ -207,26 +217,47 @@ public class SeedData implements CommandLineRunner {
         }
     }
 
-    private void ensureEscalationPolicy(AppUser engineer, AppUser lead, AppUser manager) {
+    private void ensureEscalationPolicy(AppUser engineer, AppUser lead, AppUser manager, AppUser engineer2) {
         escalationPolicyRepository.findByProjectKeyIgnoreCaseAndGroupKeyIgnoreCaseAndEnabledTrue("payments", "primary-support")
-                .orElseGet(() -> {
-                    EscalationPolicy policy = new EscalationPolicy();
-                    policy.setProjectKey("payments");
-                    policy.setGroupKey("primary-support");
-                    policy.setServiceName("payments");
-                    policy.setEnabled(true);
-                    policy.addLevel(createLevel(1, engineer, 5));
-                    policy.addLevel(createLevel(2, lead, 10));
-                    policy.addLevel(createLevel(3, manager, 15));
-                    return escalationPolicyRepository.save(policy);
-                });
+				.orElseGet(() -> {
+					EscalationPolicy policy = new EscalationPolicy();
+					policy.setProjectKey("payments");
+					policy.setGroupKey("primary-support");
+					policy.setServiceName("payments");
+					policy.setEnabled(true);
+					EscalationLevel level1 = createLevel(1, engineer, 5);
+					EscalationLevel level2 = createLevel(2, lead, 10);
+					EscalationLevel level3 = createLevel(3, manager, 15);
+					policy.addLevel(level1);
+					policy.addLevel(level2);
+					policy.addLevel(level3);
+					escalationPolicyRepository.save(policy);
+					List<EscalationLevelUser> mappings = List.of(createMapping(level1, engineer), createMapping(level1, engineer2),
+							createMapping(level2, lead), createMapping(level3, manager));
+
+					escalationLevelUserRepository.saveAll(mappings);
+					return policy;
+				});
     }
 
     private EscalationLevel createLevel(int levelNumber, AppUser user, int waitMinutes) {
         EscalationLevel level = new EscalationLevel();
         level.setLevelNumber(levelNumber);
-        level.setUser(user);
+//        EscalationLevelUser mapping = new EscalationLevelUser();
+//		mapping.setEscalationLevel(level);
+//		mapping.setUser(user);
+//		mapping.setActive(true);
+//		escalationLevelUserRepository.save(mapping);
+//        level.setUser(user);
         level.setWaitMinutes(waitMinutes);
         return level;
+    }
+    
+    private EscalationLevelUser createMapping(EscalationLevel level, AppUser user) {
+        EscalationLevelUser mapping = new EscalationLevelUser();
+        mapping.setEscalationLevel(level);
+        mapping.setUser(user);
+        mapping.setActive(true);
+        return mapping;
     }
 }

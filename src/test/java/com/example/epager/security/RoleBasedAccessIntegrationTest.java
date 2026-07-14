@@ -1,17 +1,24 @@
 package com.example.epager.security;
 
-import com.example.epager.escalation.EscalationEventRepository;
-import com.example.epager.incident.Incident;
-import com.example.epager.incident.IncidentRepository;
-import com.example.epager.incident.IncidentStatus;
-import com.example.epager.notification.NotificationDeliveryEventRepository;
-import com.example.epager.notification.NotificationLogRepository;
-import com.example.epager.security.dto.LoginResponse;
-import com.example.epager.user.AppRole;
-import com.example.epager.user.AppUser;
-import com.example.epager.user.AppUserRepository;
-import com.example.epager.webhook.WebhookAuditLogRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,17 +28,27 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.example.epager.escalation.EscalationEventRepository;
+import com.example.epager.incident.Incident;
+import com.example.epager.incident.IncidentRepository;
+import com.example.epager.incident.IncidentStatus;
+import com.example.epager.notification.NotificationDeliveryEventRepository;
+import com.example.epager.notification.NotificationLog;
+import com.example.epager.notification.NotificationLogRepository;
+import com.example.epager.security.dto.LoginResponse;
+import com.example.epager.user.AppRole;
+import com.example.epager.user.AppUser;
+import com.example.epager.user.AppUserRepository;
+import com.example.epager.user.roster.AppUserRoster;
+import com.example.epager.user.roster.AppUserRosterRepository;
+import com.example.epager.user.roster.RosterService;
+import com.example.epager.user.roster.Shift;
+import com.example.epager.user.roster.ShiftRepository;
+import com.example.epager.user.roster.dto.CreateRosterRequest;
+import com.example.epager.user.roster.dto.RosterResponse;
+import com.example.epager.user.roster.dto.UpdateRosterRequest;
+import com.example.epager.webhook.WebhookAuditLogRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootTest(properties = {
         "spring.datasource.url=${EPAGER_TEST_DB_URL:jdbc:postgresql://localhost:5432/epager_test}",
@@ -71,10 +88,20 @@ class RoleBasedAccessIntegrationTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private ShiftRepository shiftRepository;
+    
+    @Autowired
+    private AppUserRosterRepository rosterRepository;
+    
+    @Autowired
+    private RosterService rosterService;
+    
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private AppUser shivam;
     private AppUser ravi;
+    private AppUser manish;
 
     @BeforeEach
     void resetIncidents() {
@@ -83,12 +110,18 @@ class RoleBasedAccessIntegrationTest {
         notificationLogRepository.deleteAll();
         escalationEventRepository.deleteAll();
         incidentRepository.deleteAll();
+        rosterRepository.deleteAll();
         webhookAuditLogRepository.deleteAll();
+        ensureShifts();
+       
 
         shivam = appUserRepository.findByEmailIgnoreCase("shivam.engineer@example.com")
                 .orElseThrow();
         ravi = appUserRepository.findByEmailIgnoreCase("ravi.lead@example.com")
                 .orElseThrow();
+        manish = appUserRepository.findByEmailIgnoreCase("manish.manager@example.com")
+                .orElseThrow();
+        ensureRoster(shivam, ravi, manish);
     }
 
     @Test
@@ -228,13 +261,13 @@ class RoleBasedAccessIntegrationTest {
                 .andExpect(jsonPath("$.severity").value("critical"))
                 .andExpect(jsonPath("$.payload.problemTitle").value("Payments service failure rate is critical"))
                 .andExpect(jsonPath("$.incident.status").value("TRIGGERED"))
-                .andExpect(jsonPath("$.incident.assignedUserName").value("Shivam Engineer"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
         Long incidentId = objectMapper.readTree(response).path("incident").path("id").asLong();
-        assertTrue(notificationLogRepository.findAll().stream()
+        List<NotificationLog> all = notificationLogRepository.findAll();
+        assertTrue(all.stream()
                 .anyMatch(log -> log.getIncident() != null && incidentId.equals(log.getIncident().getId())));
     }
 
@@ -324,6 +357,195 @@ class RoleBasedAccessIntegrationTest {
 
         loginResponse(user.getEmail(), "newPassword1");
     }
+    
+    @Test
+	void shouldCreateRosterSuccessfully() {
+
+		Shift evening = shiftRepository.findByShiftNameIgnoreCase("Evening").orElseThrow();
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(shivam.getId());
+		request.setShiftId(evening.getId());
+		request.setRosterDate(LocalDate.now().plusDays(1));
+
+		RosterResponse response = rosterService.create(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getId());
+
+		assertEquals(shivam.getId(), response.getUserId());
+		assertEquals("Evening", response.getShiftName());
+		assertEquals(LocalDate.now().plusDays(1), response.getRosterDate());
+
+		assertTrue(rosterRepository.existsByUserIdAndRosterDate(shivam.getId(), LocalDate.now().plusDays(1)));
+
+		AppUserRoster roster = rosterRepository.findById(response.getId()).orElseThrow();
+
+		assertEquals(shivam.getId(), roster.getUser().getId());
+		assertEquals(evening.getId(), roster.getShift().getId());
+		assertTrue(roster.getActive());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenRosterAlreadyExists() {
+
+		Shift night = shiftRepository.findByShiftNameIgnoreCase("Night").orElseThrow();
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(shivam.getId());
+		request.setShiftId(night.getId());
+		request.setRosterDate(LocalDate.now());
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> rosterService.create(request));
+
+		assertEquals("User is already assigned to a shift on " + LocalDate.now(), exception.getMessage());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenUserDoesNotExist() {
+
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning").orElseThrow();
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(99999L);
+		request.setShiftId(morning.getId());
+		request.setRosterDate(LocalDate.now().plusDays(1));
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> rosterService.create(request));
+
+		assertEquals("AppUser not found", exception.getMessage());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenShiftDoesNotExist() {
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(shivam.getId());
+		request.setShiftId(99999L);
+		request.setRosterDate(LocalDate.now().plusDays(1));
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> rosterService.create(request));
+
+		assertEquals("Shift not found", exception.getMessage());
+	}
+    
+    @Test
+	void shouldPersistRosterInDatabase() {
+
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning").orElseThrow();
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(ravi.getId());
+		request.setShiftId(morning.getId());
+		request.setRosterDate(LocalDate.now().plusDays(2));
+
+		rosterService.create(request);
+
+		List<AppUserRoster> rosters = rosterRepository.findAll();
+
+		assertTrue(rosters.stream()
+				.anyMatch(roster -> roster.getUser().getId().equals(ravi.getId())
+						&& roster.getShift().getId().equals(morning.getId())
+						&& roster.getRosterDate().equals(LocalDate.now().plusDays(2))));
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenRosterAlreadyExistsForDate() {
+
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning").orElseThrow();
+
+		AppUserRoster tomorrowRoster = new AppUserRoster();
+		tomorrowRoster.setUser(shivam);
+		tomorrowRoster.setShift(morning);
+		tomorrowRoster.setRosterDate(LocalDate.now().plusDays(1));
+		tomorrowRoster.setActive(true);
+		tomorrowRoster.setCreatedOn(LocalDateTime.now());
+		tomorrowRoster.setUpdatedOn(LocalDateTime.now());
+
+		rosterRepository.save(tomorrowRoster);
+
+		AppUserRoster todayRoster = rosterRepository.findAll().stream()
+				.filter(r -> r.getUser().getId().equals(shivam.getId()))
+				.filter(r -> r.getRosterDate().equals(LocalDate.now())).findFirst().orElseThrow();
+
+		UpdateRosterRequest request = new UpdateRosterRequest();
+		request.setShiftId(morning.getId());
+		request.setRosterDate(LocalDate.now().plusDays(1));
+
+		RuntimeException exception = assertThrows(RuntimeException.class,
+				() -> rosterService.update(todayRoster.getId(), request));
+
+		assertEquals("User already has a roster for " + LocalDate.now().plusDays(1), exception.getMessage());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenRosterNotFound() {
+
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning").orElseThrow();
+
+		UpdateRosterRequest request = new UpdateRosterRequest();
+		request.setShiftId(morning.getId());
+		request.setRosterDate(LocalDate.now().plusDays(1));
+		request.setActive(true);
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> rosterService.update(99999L, request));
+
+		assertEquals("Roster not found", exception.getMessage());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenShiftNotFound() {
+
+		AppUserRoster roster = rosterRepository.findAll().stream()
+				.filter(r -> r.getUser().getId().equals(shivam.getId())).findFirst().orElseThrow();
+
+		UpdateRosterRequest request = new UpdateRosterRequest();
+		request.setShiftId(99999L);
+		request.setRosterDate(roster.getRosterDate());
+
+		RuntimeException exception = assertThrows(RuntimeException.class,
+				() -> rosterService.update(roster.getId(), request));
+
+		assertEquals("Shift not found", exception.getMessage());
+	}
+    
+    @Test
+	void shouldReturnCurrentShift() {
+
+		Shift shift = rosterService.getCurrentShift();
+
+		assertNotNull(shift);
+		assertNotNull(shift.getId());
+		assertTrue(shift.getActive());
+		assertNotNull(shift.getShiftName());
+	}
+    
+    @Test
+	void shouldReturnUsersForCurrentShift() {
+
+		List<AppUser> users = rosterService.getCurrentShiftUsers();
+
+		assertNotNull(users);
+		assertFalse(users.isEmpty());
+
+		users.forEach(user -> {
+			assertNotNull(user.getId());
+			assertNotNull(user.getEmail());
+		});
+	}
+    
+    @Test
+	void shouldReturnOnlyCurrentShiftEscalationUsers() {
+
+		List<AppUser> escalationUsers = List.of(shivam, ravi, manish);
+		List<AppUser> result = rosterService.getCurrentShiftUsers(escalationUsers);
+		assertNotNull(result);
+
+		Shift currentShift = rosterService.getCurrentShift();
+		List<AppUser> expected = rosterRepository.findUsersByShift(currentShift.getId());
+		assertEquals(expected.stream().map(AppUser::getId).collect(Collectors.toSet()),
+				result.stream().map(AppUser::getId).collect(Collectors.toSet()));
+	}
 
     private String login(String email) throws Exception {
         return loginResponse(email, "password").accessToken();
@@ -374,4 +596,57 @@ class RoleBasedAccessIntegrationTest {
         incident.setCreatedAt(LocalDateTime.now());
         return incident;
     }
+    
+	private void ensureShifts() {
+
+		createShiftIfNotExists("Morning", LocalTime.of(8, 0), LocalTime.of(16, 0));
+
+		createShiftIfNotExists("Evening", LocalTime.of(16, 0), LocalTime.MIDNIGHT);
+
+		createShiftIfNotExists("Night", LocalTime.MIDNIGHT, LocalTime.of(8, 0));
+	}
+
+	private void createShiftIfNotExists(String shiftName, LocalTime startTime, LocalTime endTime) {
+		if (shiftRepository.findByShiftNameIgnoreCase(shiftName).isPresent()) {
+			return;
+		}
+		Shift shift = new Shift();
+		shift.setShiftName(shiftName);
+		shift.setStartTime(startTime);
+		shift.setEndTime(endTime);
+		shift.setActive(true);
+		shift.setCreatedOn(LocalDateTime.now());
+		shift.setUpdatedOn(LocalDateTime.now());
+
+		shiftRepository.save(shift);
+	}
+	
+	private void createRosterIfNotExists(AppUser user, Shift shift, LocalDate rosterDate) {
+		if (rosterRepository.existsByUserIdAndShiftIdAndRosterDate(user.getId(), shift.getId(), rosterDate)) {
+			return;
+		}
+		AppUserRoster roster = new AppUserRoster();
+
+		roster.setUser(user);
+		roster.setShift(shift);
+		roster.setRosterDate(rosterDate);
+		roster.setActive(true);
+		roster.setCreatedOn(LocalDateTime.now());
+		roster.setUpdatedOn(LocalDateTime.now());
+		rosterRepository.save(roster);
+	}
+	
+	private void ensureRoster(AppUser shivam, AppUser ravi, AppUser manish) {
+		LocalDate today = LocalDate.now();
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning")
+				.orElseThrow(() -> new RuntimeException("Morning shift not found"));
+		Shift evening = shiftRepository.findByShiftNameIgnoreCase("Evening")
+				.orElseThrow(() -> new RuntimeException("Evening shift not found"));
+		Shift night = shiftRepository.findByShiftNameIgnoreCase("Night")
+				.orElseThrow(() -> new RuntimeException("Night shift not found"));
+		createRosterIfNotExists(shivam, morning, today);
+		createRosterIfNotExists(ravi, evening, today);
+		createRosterIfNotExists(shivam, evening, today);
+		createRosterIfNotExists(manish, night, today);
+	}
 }
