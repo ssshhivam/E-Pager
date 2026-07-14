@@ -1,8 +1,11 @@
 package com.example.epager.security;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -14,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,8 +41,12 @@ import com.example.epager.user.AppUser;
 import com.example.epager.user.AppUserRepository;
 import com.example.epager.user.roster.AppUserRoster;
 import com.example.epager.user.roster.AppUserRosterRepository;
+import com.example.epager.user.roster.RosterService;
 import com.example.epager.user.roster.Shift;
 import com.example.epager.user.roster.ShiftRepository;
+import com.example.epager.user.roster.dto.CreateRosterRequest;
+import com.example.epager.user.roster.dto.RosterResponse;
+import com.example.epager.user.roster.dto.UpdateRosterRequest;
 import com.example.epager.webhook.WebhookAuditLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -86,6 +94,9 @@ class RoleBasedAccessIntegrationTest {
     private AppUserRosterRepository rosterRepository;
     
     @Autowired
+    private RosterService rosterService;
+    
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private AppUser shivam;
@@ -99,6 +110,7 @@ class RoleBasedAccessIntegrationTest {
         notificationLogRepository.deleteAll();
         escalationEventRepository.deleteAll();
         incidentRepository.deleteAll();
+        rosterRepository.deleteAll();
         webhookAuditLogRepository.deleteAll();
         ensureShifts();
        
@@ -345,6 +357,195 @@ class RoleBasedAccessIntegrationTest {
 
         loginResponse(user.getEmail(), "newPassword1");
     }
+    
+    @Test
+	void shouldCreateRosterSuccessfully() {
+
+		Shift evening = shiftRepository.findByShiftNameIgnoreCase("Evening").orElseThrow();
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(shivam.getId());
+		request.setShiftId(evening.getId());
+		request.setRosterDate(LocalDate.now().plusDays(1));
+
+		RosterResponse response = rosterService.create(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getId());
+
+		assertEquals(shivam.getId(), response.getUserId());
+		assertEquals("Evening", response.getShiftName());
+		assertEquals(LocalDate.now().plusDays(1), response.getRosterDate());
+
+		assertTrue(rosterRepository.existsByUserIdAndRosterDate(shivam.getId(), LocalDate.now().plusDays(1)));
+
+		AppUserRoster roster = rosterRepository.findById(response.getId()).orElseThrow();
+
+		assertEquals(shivam.getId(), roster.getUser().getId());
+		assertEquals(evening.getId(), roster.getShift().getId());
+		assertTrue(roster.getActive());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenRosterAlreadyExists() {
+
+		Shift night = shiftRepository.findByShiftNameIgnoreCase("Night").orElseThrow();
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(shivam.getId());
+		request.setShiftId(night.getId());
+		request.setRosterDate(LocalDate.now());
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> rosterService.create(request));
+
+		assertEquals("User is already assigned to a shift on " + LocalDate.now(), exception.getMessage());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenUserDoesNotExist() {
+
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning").orElseThrow();
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(99999L);
+		request.setShiftId(morning.getId());
+		request.setRosterDate(LocalDate.now().plusDays(1));
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> rosterService.create(request));
+
+		assertEquals("AppUser not found", exception.getMessage());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenShiftDoesNotExist() {
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(shivam.getId());
+		request.setShiftId(99999L);
+		request.setRosterDate(LocalDate.now().plusDays(1));
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> rosterService.create(request));
+
+		assertEquals("Shift not found", exception.getMessage());
+	}
+    
+    @Test
+	void shouldPersistRosterInDatabase() {
+
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning").orElseThrow();
+
+		CreateRosterRequest request = new CreateRosterRequest();
+		request.setUserId(ravi.getId());
+		request.setShiftId(morning.getId());
+		request.setRosterDate(LocalDate.now().plusDays(2));
+
+		rosterService.create(request);
+
+		List<AppUserRoster> rosters = rosterRepository.findAll();
+
+		assertTrue(rosters.stream()
+				.anyMatch(roster -> roster.getUser().getId().equals(ravi.getId())
+						&& roster.getShift().getId().equals(morning.getId())
+						&& roster.getRosterDate().equals(LocalDate.now().plusDays(2))));
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenRosterAlreadyExistsForDate() {
+
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning").orElseThrow();
+
+		AppUserRoster tomorrowRoster = new AppUserRoster();
+		tomorrowRoster.setUser(shivam);
+		tomorrowRoster.setShift(morning);
+		tomorrowRoster.setRosterDate(LocalDate.now().plusDays(1));
+		tomorrowRoster.setActive(true);
+		tomorrowRoster.setCreatedOn(LocalDateTime.now());
+		tomorrowRoster.setUpdatedOn(LocalDateTime.now());
+
+		rosterRepository.save(tomorrowRoster);
+
+		AppUserRoster todayRoster = rosterRepository.findAll().stream()
+				.filter(r -> r.getUser().getId().equals(shivam.getId()))
+				.filter(r -> r.getRosterDate().equals(LocalDate.now())).findFirst().orElseThrow();
+
+		UpdateRosterRequest request = new UpdateRosterRequest();
+		request.setShiftId(morning.getId());
+		request.setRosterDate(LocalDate.now().plusDays(1));
+
+		RuntimeException exception = assertThrows(RuntimeException.class,
+				() -> rosterService.update(todayRoster.getId(), request));
+
+		assertEquals("User already has a roster for " + LocalDate.now().plusDays(1), exception.getMessage());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenRosterNotFound() {
+
+		Shift morning = shiftRepository.findByShiftNameIgnoreCase("Morning").orElseThrow();
+
+		UpdateRosterRequest request = new UpdateRosterRequest();
+		request.setShiftId(morning.getId());
+		request.setRosterDate(LocalDate.now().plusDays(1));
+		request.setActive(true);
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> rosterService.update(99999L, request));
+
+		assertEquals("Roster not found", exception.getMessage());
+	}
+    
+    @Test
+	void shouldThrowExceptionWhenShiftNotFound() {
+
+		AppUserRoster roster = rosterRepository.findAll().stream()
+				.filter(r -> r.getUser().getId().equals(shivam.getId())).findFirst().orElseThrow();
+
+		UpdateRosterRequest request = new UpdateRosterRequest();
+		request.setShiftId(99999L);
+		request.setRosterDate(roster.getRosterDate());
+
+		RuntimeException exception = assertThrows(RuntimeException.class,
+				() -> rosterService.update(roster.getId(), request));
+
+		assertEquals("Shift not found", exception.getMessage());
+	}
+    
+    @Test
+	void shouldReturnCurrentShift() {
+
+		Shift shift = rosterService.getCurrentShift();
+
+		assertNotNull(shift);
+		assertNotNull(shift.getId());
+		assertTrue(shift.getActive());
+		assertNotNull(shift.getShiftName());
+	}
+    
+    @Test
+	void shouldReturnUsersForCurrentShift() {
+
+		List<AppUser> users = rosterService.getCurrentShiftUsers();
+
+		assertNotNull(users);
+		assertFalse(users.isEmpty());
+
+		users.forEach(user -> {
+			assertNotNull(user.getId());
+			assertNotNull(user.getEmail());
+		});
+	}
+    
+    @Test
+	void shouldReturnOnlyCurrentShiftEscalationUsers() {
+
+		List<AppUser> escalationUsers = List.of(shivam, ravi, manish);
+		List<AppUser> result = rosterService.getCurrentShiftUsers(escalationUsers);
+		assertNotNull(result);
+
+		Shift currentShift = rosterService.getCurrentShift();
+		List<AppUser> expected = rosterRepository.findUsersByShift(currentShift.getId());
+		assertEquals(expected.stream().map(AppUser::getId).collect(Collectors.toSet()),
+				result.stream().map(AppUser::getId).collect(Collectors.toSet()));
+	}
 
     private String login(String email) throws Exception {
         return loginResponse(email, "password").accessToken();
