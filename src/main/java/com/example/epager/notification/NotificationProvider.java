@@ -1,8 +1,11 @@
 package com.example.epager.notification;
 
+import java.util.List;
+
 public interface NotificationProvider {
 
-    NotificationChannel channel();
+	NotificationChannel channel();
 
-    NotificationResult send(NotificationRequest request);
+	List<NotificationResult> send(PushNotificationRequest request);
+
 }

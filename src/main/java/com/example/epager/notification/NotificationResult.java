@@ -5,11 +5,12 @@ public record NotificationResult(
         String providerMessageId,
         String errorMessage
 ) {
-    public static NotificationResult delivered(String providerMessageId) {
-        return new NotificationResult(true, providerMessageId, null);
-    }
 
-    public static NotificationResult failed(String errorMessage) {
-        return new NotificationResult(false, null, errorMessage);
-    }
+	public static NotificationResult delivered(String providerMessageId) {
+		return new NotificationResult(true, providerMessageId, null);
+	}
+
+	public static NotificationResult failed(String errorMessage) {
+		return new NotificationResult(false, null, errorMessage);
+	}
 }

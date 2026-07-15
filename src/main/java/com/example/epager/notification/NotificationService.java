@@ -1,16 +1,19 @@
 package com.example.epager.notification;
 
-import com.example.epager.incident.Incident;
-import com.example.epager.user.AppUser;
-import jakarta.persistence.EntityNotFoundException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.epager.incident.Incident;
+import com.example.epager.user.AppUser;
+
+import jakarta.persistence.EntityNotFoundException;
 
 @Service
 public class NotificationService {
@@ -33,36 +36,33 @@ public class NotificationService {
                 .collect(Collectors.toMap(NotificationProvider::channel, Function.identity()));
     }
 
-    @Transactional
-    public void notifyUser(Incident incident, List<AppUser> userList) {
+	@Transactional
+	public void notifyUser(Incident incident, List<AppUser> userList) {
+		List<PushTarget> targets = new ArrayList<>();
 		for (AppUser recipient : userList) {
 			List<UserDevice> devices = userDeviceRepository.findByUserAndActiveTrue(recipient);
 			if (devices.isEmpty()) {
 				NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH,
 						recipient.getEmail());
 				markProviderResult(log, NotificationResult.failed("No active push devices registered"));
-				return;
+				continue;
 			}
-
-			NotificationProvider provider = providers.get(NotificationChannel.PUSH);
-			if (provider == null) {
-				devices.forEach(device -> {
-					NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH,
-							device.getPushToken());
-					markProviderResult(log, NotificationResult.failed("No PUSH notification provider configured"));
-				});
-				return;
-			}
-
-			devices.forEach(device -> {
+			for (UserDevice device : devices) {
 				NotificationLog log = createQueuedLog(incident, recipient, NotificationChannel.PUSH,
 						device.getPushToken());
-				NotificationRequest request = pushRequest(log, incident, recipient, device);
-				NotificationResult result = provider.send(request);
-				markProviderResult(log, result);
-			});
+				targets.add(new PushTarget(log, device.getPushToken()));
+			}
 		}
-    }
+		if (targets.isEmpty()) {
+			return;
+		}
+		NotificationProvider provider = providers.get(NotificationChannel.PUSH);
+		PushNotificationRequest request = pushRequest(incident, targets);
+		List<NotificationResult> results = provider.send(request);
+		for (int i = 0; i < targets.size(); i++) {
+			markProviderResult(targets.get(i).log(), results.get(i));
+		}
+	}
 
     @Transactional(readOnly = true)
     public List<NotificationLog> findAll() {
@@ -102,24 +102,13 @@ public class NotificationService {
         return notificationDeliveryEventRepository.findByNotificationLogOrderByCreatedAtAsc(findLog(notificationLogId));
     }
 
-    private NotificationRequest pushRequest(
-            NotificationLog log,
+    private PushNotificationRequest pushRequest(
             Incident incident,
-            AppUser recipient,
-            UserDevice device
-    ) {
-        return new NotificationRequest(
-                log.getId(),
-                incident.getId(),
-                recipient.getId(),
-                NotificationChannel.PUSH,
-                device.getPushToken(),
-                title(incident),
-                message(incident),
-                incident.getSeverity(),
-                deepLink(incident, log)
-        );
-    }
+            List<PushTarget> targets
+	) {
+		return new PushNotificationRequest(targets.stream().map(PushTarget::token).toList(), title(incident),
+				message(incident), incident.getSeverity(), deepLink(incident), incident.getId());
+	}
 
     private NotificationLog findLog(Long notificationLogId) {
         return notificationLogRepository.findById(notificationLogId)
@@ -155,7 +144,7 @@ public class NotificationService {
         if (result.delivered()) {
             log.setStatus(NotificationStatus.SENT);
             log.setSentAt(LocalDateTime.now());
-            log.setDeepLink(deepLink(log.getIncident(), log));
+            log.setDeepLink(deepLink(log.getIncident()));
             notificationLogRepository.save(log);
             recordDeliveryEvent(log, NotificationStatus.SENT, "Provider accepted notification", null);
         } else {
@@ -174,8 +163,8 @@ public class NotificationService {
         return "Incident #" + incident.getId() + ": " + incident.getTitle();
     }
 
-    private String deepLink(Incident incident, NotificationLog log) {
-        return "/incidents/" + incident.getId() + "?notificationId=" + log.getId();
+    private String deepLink(Incident incident) {
+        return "/incidents/" + incident.getId();
     }
 
     private void recordDeliveryEvent(

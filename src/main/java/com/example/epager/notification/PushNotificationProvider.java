@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -19,15 +21,15 @@ public class PushNotificationProvider implements NotificationProvider {
     }
 
     @Override
-    public NotificationResult send(NotificationRequest request) {
+    public List<NotificationResult> send(PushNotificationRequest request) {
         log.info(
-                "Push notification id={} to token={} title='{}' message='{}' deepLink={}",
-                request.notificationLogId(),
-                request.destination(),
+                "Push notification title='{}' message='{}' deepLink={}",
                 request.title(),
                 request.message(),
                 request.deepLink()
         );
-        return NotificationResult.delivered("simulated-push-" + UUID.randomUUID());
+        List<NotificationResult> results = new ArrayList<>();
+        results.add(NotificationResult.delivered("simulated-push-" + UUID.randomUUID()));
+        return results;
     }
 }
